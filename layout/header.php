@@ -5,7 +5,7 @@
 $current_path = strtok($_SERVER["REQUEST_URI"], '?'); 
 
 // BƯỚC 2: Định nghĩa đường dẫn gốc của dự án
-$base_path = '/ptud_cungtien'; 
+$base_path = '/PTUD_CUNGTIEN_QLSX'; 
 session_start();
 ?>
 

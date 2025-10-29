@@ -12,3 +12,7 @@
       <a href="#"><i class="bi bi-bar-chart-fill me-2"></i>Báo cáo thống kê</a>
     </div>
   </div>
+  <div class="content">
+  <?php require_once(__DIR__ . "/../../pages/kehoachsanxuat/menuBGD.php");?>
+
+  </div>
