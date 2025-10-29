@@ -103,6 +103,7 @@ $dsKeHoach = $ctrl->getAll();
 let currentKHSX = null;
 
 function xemChiTiet(maKHSX){
+  currentKHSX = maKHSX;
   console.log("🟢 Gọi API:", '../../pages/kehoachsanxuat/index.php?action=xemChiTiet&maKHSX=' + maKHSX);
   fetch('../../pages/kehoachsanxuat/index.php?action=xemChiTiet&maKHSX=' + maKHSX)
     .then(async res => {
@@ -182,7 +183,7 @@ function pheDuyet(hanhDong){
     if (!lyDo) return alert('Vui lòng nhập lý do từ chối!');
   }
 
-  fetch('index.php?action=pheDuyet', {
+  fetch('../../pages/kehoachsanxuat/index.php?action=pheDuyet', {
     method: 'POST',
     headers: {'Content-Type':'application/x-www-form-urlencoded'},
     body: `maKHSX=${currentKHSX}&hanhDong=${hanhDong}&nguoi=admin&lyDo=${encodeURIComponent(lyDo)}`

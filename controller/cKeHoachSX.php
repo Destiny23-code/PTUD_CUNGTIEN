@@ -30,14 +30,18 @@ class cKeHoachSX {
 
 
     public function pheDuyet() {
-        $maKHSX = $_POST['maKHSX'];
-        $hanhDong = $_POST['hanhDong'];
-        $nguoi = $_POST['nguoi']; // có thể lưu log sau này
-        $lyDo = isset($_POST['lyDo']) ? $_POST['lyDo'] : null;
-        $trangThai = $hanhDong === 'duyet' ? 'Đã duyệt' : 'Từ chối';
+    $maKHSX = $_POST['maKHSX'];
+    $hanhDong = $_POST['hanhDong'];
+    $nguoi = $_POST['nguoi'];
+    $lyDo = isset($_POST['lyDo']) ? $_POST['lyDo'] : null;
+    $trangThai = $hanhDong === 'duyet' ? 'Đã duyệt' : 'Từ chối';
 
-        $kq = $this->model->capNhatTrangThaiKeHoach($maKHSX, $trangThai, $lyDo);
-        echo json_encode(['success' => $kq]);
-    }
+    $kq = $this->model->capNhatTrangThaiKeHoach($maKHSX, $trangThai, $lyDo);
+
+    // ✅ In ra JSON kết quả debug để xem SQL và lỗi
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode($kq);
+}
+
 }
 ?>

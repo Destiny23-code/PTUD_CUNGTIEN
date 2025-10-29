@@ -56,24 +56,38 @@ class KeHoachModel extends ketnoi {
 
     // Duyệt hoặc từ chối kế hoạch
     public function capNhatTrangThaiKeHoach($maKHSX, $trangThai, $lyDo = null) {
-        $link = $this->connect();
-        $maKHSX_safe = $link->real_escape_string($maKHSX);
-        $trangThai_safe = $link->real_escape_string($trangThai);
-        $lyDo_safe = $lyDo ? $link->real_escape_string($lyDo) : null;
+    $link = $this->connect();
+    $maKHSX_safe = $link->real_escape_string($maKHSX);
+    $trangThai_safe = $link->real_escape_string($trangThai);
+    $lyDo_safe = $lyDo ? $link->real_escape_string($lyDo) : null;
 
-        if ($trangThai_safe === 'Từ chối') {
-            $sql = "UPDATE KEHOACHSANXUAT 
-                    SET trangThai = N'$trangThai_safe', lyDoTuChoi = N'$lyDo_safe'
-                    WHERE maKHSX = '$maKHSX_safe'";
-        } else {
-            $sql = "UPDATE KEHOACHSANXUAT 
-                    SET trangThai = N'$trangThai_safe', lyDoTuChoi = NULL
-                    WHERE maKHSX = '$maKHSX_safe'";
-        }
-
-        $result = $this->xuly($link, $sql);
-        $link->close();
-        return $result;
+    // ✅ In ra câu SQL để dễ kiểm tra
+    if ($trangThai_safe === 'Từ chối') {
+        $sql = "UPDATE kehoachsanxuat 
+                SET trangThai = '$trangThai_safe', lyDoTuChoi = '$lyDo_safe'
+                WHERE maKHSX = '$maKHSX_safe'";
+    } else {
+        $sql = "UPDATE kehoachsanxuat 
+                SET trangThai = '$trangThai_safe', lyDoTuChoi = NULL
+                WHERE maKHSX = '$maKHSX_safe'";
     }
+
+    // ✅ Thực thi và kiểm tra lỗi
+    $result = $link->query($sql);
+
+    if (!$result) {
+        echo json_encode([
+            'success' => false,
+            'error_sql' => $link->error,
+            'query' => $sql
+        ]);
+        $link->close();
+        exit;
+    }
+
+    $link->close();
+    echo json_encode(['success' => true]);
+    exit;
+}
 }
 ?>
