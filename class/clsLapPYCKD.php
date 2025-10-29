@@ -3,6 +3,7 @@ require_once("clsconnect.php");
 
 class clsLapPYCKD extends ketnoi {
     private $conn;
+
     public function __construct($conn) {
         $this->conn = $conn;
     }
@@ -22,7 +23,7 @@ class clsLapPYCKD extends ketnoi {
                 FROM losanpham
                 WHERE trangThai = :trangThai";
         $stmt = $this->conn->prepare($sql);
-        $stmt->execute([':trangThai' => $trangThai]);
+        $stmt->execute(array(':trangThai' => $trangThai));
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
@@ -40,7 +41,7 @@ class clsLapPYCKD extends ketnoi {
             $update = $this->conn->prepare("UPDATE losanpham 
                                             SET trangThai = 'Đang kiểm định' 
                                             WHERE maLo = :maLo");
-            $update->execute([':maLo' => $data[':maLo']]);
+            $update->execute(array(':maLo' => $data[':maLo']));
 
             $this->conn->commit();
             return true;
