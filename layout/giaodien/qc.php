@@ -1,12 +1,17 @@
-<?php include_once('../../layout/header.php');?>
+<?php include_once('../../layout/header.php'); ?>
 <!-- Sidebar -->
-  <div class="sidebar">
-    <div class="nav flex-column mt-2">
+<div class="sidebar">
+  <div class="nav flex-column mt-2">
+    <a href="#" class="active"><i class="bi bi-house-door me-2"></i>Trang chủ</a>
 
-      <div class="nav-section">QUẢN LÝ CHẤT LƯỢNG</div>
-      <a href="#"><i class="bi bi-clipboard-check me-2"></i>Danh sách phiếu yêu cầu kiểm định</a>
-      <a href="#"><i class="bi bi-clipboard-check me-2"></i>Danh sách lô sản phẩm</a>
-      <a href="#"><i class="bi bi-file-earmark-bar-graph me-2"></i>Lập báo cáo chất lượng</a>
+    <div class="nav-section">QUẢN LÝ KẾ HOẠCH SẢN XUẤT</div>
+    <a href="#"><i class="bi bi-calendar-check me-2"></i>Danh sách kế hoạch sản xuất</a>
 
-      
+    <div class="nav-section">BÁO CÁO</div>
+    <a href="#"><i class="bi bi-bar-chart-fill me-2"></i>Báo cáo thống kê</a>
   </div>
+</div>
+
+<div class="content">
+  <?php include_once('../../pages/menuBGD.php'); ?>  
+</div>
