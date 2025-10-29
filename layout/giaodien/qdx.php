@@ -8,8 +8,8 @@
       $link_ds_kehoach  = $base_path . '/pages/kehoach/danhsach.php';
       $link_phanbo_dc   = $base_path . '/pages/phanbo/daychuyen.php';
       $link_phancong_nc = $base_path . '/pages/phancong/nhancong.php';
-      $link_ycnl        = $base_path . '/pages/pycnl.php';
-      $link_yckd        = $base_path . '/pages/pyckd.php';
+      $link_ycnl        = $base_path . '/pages/yeucaunguyenlieu/pycnl.php';
+      $link_yckd        = $base_path . '/pages/yeucaukiemdinh/pyckd.php';
       $link_thongke     = $base_path . '/pages/thongke/sanluong.php';
     ?>
 

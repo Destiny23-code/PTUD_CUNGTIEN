@@ -1,139 +1,110 @@
 <?php
-require_once("../includes/clsconnect.php");
-require_once("../includes/clsLapPYCNL.php");
+session_start();
+header('Content-Type: text/html; charset=utf-8');
+require_once("../../class/clsconnect.php");
+require_once("../../class/clsLapPYCNL.php");
 
+// Kiểm tra đăng nhập
+if (!isset($_SESSION['maND'])) {
+    header("Location: ../dangnhap/dangnhap.php");
+    exit();
+}
+
+// Kết nối CSDL
 $ketnoi = new ketnoi();
 $conn = $ketnoi->connect();
+$conn->set_charset("utf8");
+
 $cls = new clsLapPYCNL($conn);
-
-// --- Lấy danh sách xưởng và kế hoạch sản xuất ---
-$listXuong = $ketnoi->laydulieu($conn, "SELECT maXuong, tenXuong FROM xuong");
-$listKH = $ketnoi->laydulieu($conn, "SELECT maKHSX, maDH FROM kehoachsanxuat");
-
-$nguyenlieuList = array();
 $msg = "";
 
-// --- Khi người dùng chọn xưởng & kế hoạch ---
-if (isset($_POST['chon_xuong']) && isset($_POST['chon_kehoach'])) {
-    $maXuong = $_POST['chon_xuong'];
-    $maKHSX = $_POST['chon_kehoach'];
-    $nguyenlieuList = $cls->getNguyenLieuTheoKeHoach($maKHSX, $maXuong);
-}
+// Lấy danh sách kế hoạch sản xuất và xưởng
+$listKH = $ketnoi->laydulieu($conn, "SELECT maKHSX, maDH FROM kehoachsanxuat");
+$listXuong = $ketnoi->laydulieu($conn, "SELECT maXuong, tenXuong FROM xuong");
 
-// --- Khi người dùng nhấn "Lập phiếu yêu cầu" ---
+// Xử lý khi nhấn “Lập phiếu”
 if (isset($_POST['btnLapPhieu'])) {
-    $nguoiLap = 2; // Demo (quản đốc xưởng Nước)
+    $nguoiLap = $_SESSION['maND']; // Lấy mã người dùng đăng nhập
     $maXuong = $_POST['maXuong'];
-    $details = [];
+    $maKHSX = $_POST['maKHSX'];
 
-    if (!empty($_POST['soLuongYeuCau'])) {
-        foreach ($_POST['soLuongYeuCau'] as $i => $sl) {
-            if ($sl > 0) {
-                $details[] = [
-                    'maKH' => $_POST['maKH'][$i],
-                    'maNL' => $_POST['maNL'][$i],
-                    'maDC' => $_POST['maDC'][$i],
-                    'soLuongYeuCau' => $sl
-                ];
-            }
-        }
+    $sql = "INSERT INTO phieuyeucaunguyenlieu (ngayLap, nguoiLap, maXuong, maKHSX, trangThai)
+            VALUES (CURDATE(), '$nguoiLap', '$maXuong', '$maKHSX', 'Chờ duyệt')";
+    
+    $ok = $conn->query($sql);
 
-        $ok = $cls->insertPhieuYeuCau($nguoiLap, $maXuong, $details);
-        $msg = $ok ? "✅ Lập phiếu yêu cầu thành công!" : "❌ Có lỗi khi lập phiếu.";
+    if ($ok) {
+        $new_id = $conn->insert_id;
+        $msg = "✅ Đã lập phiếu yêu cầu nguyên liệu thành công! (Mã Phiếu: $new_id)";
+    } else {
+        $msg = "❌ Lỗi khi lập phiếu: " . $conn->error;
     }
 }
+
+// --- Gọi layout header ---
+include_once("../../layout/header.php");
+
+// --- Gọi layout sidebar ---
+include_once("../../layout/sidebar.php");
 ?>
 
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <title>Lập phiếu yêu cầu nguyên liệu</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
-</head>
-<body class="bg-light">
-<div class="container mt-4">
-    <h3 class="text-primary mb-3"><i class="bi bi-file-earmark-text"></i> LẬP PHIẾU YÊU CẦU NGUYÊN LIỆU</h3>
-
-    <?php if ($msg != ""): ?>
-        <div class="alert alert-info"><?= $msg ?></div>
-    <?php endif; ?>
-
-    <!-- CHỌN KẾ HOẠCH + XƯỞNG -->
-    <form method="post" class="bg-white p-3 rounded shadow-sm mb-4">
-        <div class="row">
-            <div class="col-md-5">
-                <label class="form-label fw-bold">Kế hoạch sản xuất</label>
-                <select name="chon_kehoach" class="form-select" required>
-                    <option value="">-- Chọn kế hoạch --</option>
-                    <?php foreach ($listKH as $kh): ?>
-                        <option value="<?= $kh['maKHSX'] ?>"
-                            <?= (isset($_POST['chon_kehoach']) && $_POST['chon_kehoach'] == $kh['maKHSX']) ? 'selected' : '' ?>>
-                            KHSX #<?= $kh['maKHSX'] ?> (Đơn hàng <?= $kh['maDH'] ?>)
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div class="col-md-5">
-                <label class="form-label fw-bold">Xưởng sản xuất</label>
-                <select name="chon_xuong" class="form-select" required>
-                    <option value="">-- Chọn xưởng --</option>
-                    <?php foreach ($listXuong as $x): ?>
-                        <option value="<?= $x['maXuong'] ?>"
-                            <?= (isset($_POST['chon_xuong']) && $_POST['chon_xuong'] == $x['maXuong']) ? 'selected' : '' ?>>
-                            <?= $x['tenXuong'] ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div class="col-md-2 d-flex align-items-end">
-                <button type="submit" class="btn btn-success w-100">
-                    <i class="bi bi-search"></i> Xem nguyên liệu
-                </button>
-            </div>
+<div class="main-content">
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white fw-bold">
+            <i class="fas fa-clipboard-list me-2"></i> LẬP PHIẾU YÊU CẦU NGUYÊN LIỆU
         </div>
-    </form>
+        <div class="card-body">
+            <?php if ($msg != ""): ?>
+                <div class="alert alert-info"><?php echo $msg; ?></div>
+            <?php endif; ?>
 
-    <!-- DANH SÁCH NGUYÊN LIỆU -->
-    <?php if (!empty($nguyenlieuList)): ?>
-    <form method="post" class="bg-white p-3 rounded shadow-sm">
-        <input type="hidden" name="maXuong" value="<?= htmlspecialchars($_POST['chon_xuong']) ?>">
-        <table class="table table-bordered table-striped align-middle">
-            <thead class="table-primary text-center">
-                <tr>
-                    <th>#</th>
-                    <th>Tên dây chuyền</th>
-                    <th>Tên nguyên liệu</th>
-                    <th>Tồn kho</th>
-                    <th>Đơn vị</th>
-                    <th>Số lượng yêu cầu</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($nguyenlieuList as $i => $nl): ?>
-                <tr>
-                    <td class="text-center"><?= $i + 1 ?></td>
-                    <td><?= htmlspecialchars($nl['tenDC']) ?></td>
-                    <td><?= htmlspecialchars($nl['tenNL']) ?></td>
-                    <td class="text-end"><?= $nl['soLuongTon'] ?></td>
-                    <td class="text-center"><?= $nl['donViTinh'] ?></td>
-                    <td>
-                        <input type="number" name="soLuongYeuCau[]" class="form-control" min="0" step="0.001">
-                        <input type="hidden" name="maKH[]" value="<?= $_POST['chon_kehoach'] ?>">
-                        <input type="hidden" name="maNL[]" value="<?= $nl['maNL'] ?>">
-                        <input type="hidden" name="maDC[]" value="<?= $nl['maDC'] ?>">
-                    </td>
-                </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
+            <form method="POST" action="">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="maKHSX" class="form-label fw-bold">1. Kế hoạch Sản xuất:</label>
+                        <select name="maKHSX" id="maKHSX" class="form-select" required>
+                            <option value="">-- Chọn Kế hoạch --</option>
+                            <?php 
+                            if ($listKH && $listKH->num_rows > 0) {
+                                while ($row = $listKH->fetch_assoc()) {
+                                    echo "<option value='{$row['maKHSX']}'>KHSX: {$row['maKHSX']} (ĐH: {$row['maDH']})</option>";
+                                }
+                            } else {
+                                echo "<option value=''>Không có Kế hoạch Sản xuất nào</option>";
+                            }
+                            ?>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="maXuong" class="form-label fw-bold">2. Xưởng yêu cầu:</label>
+                        <select name="maXuong" id="maXuong" class="form-select" required>
+                            <option value="">-- Chọn Xưởng --</option>
+                            <?php 
+                            if ($listXuong && $listXuong->num_rows > 0) {
+                                while ($row = $listXuong->fetch_assoc()) {
+                                    echo "<option value='{$row['maXuong']}'>{$row['tenXuong']}</option>";
+                                }
+                            } else {
+                                echo "<option value=''>Không có Xưởng nào</option>";
+                            }
+                            ?>
+                        </select>
+                    </div>
+                </div>
 
-        <button type="submit" name="btnLapPhieu" class="btn btn-primary">
-            <i class="bi bi-save"></i> Lập phiếu yêu cầu
-        </button>
-    </form>
-    <?php endif; ?>
+                <div class="row">
+                    <div class="col-12 text-center mt-4">
+                        <button type="submit" name="btnLapPhieu" class="btn btn-success btn-lg">
+                            <i class="fas fa-file-signature me-2"></i> LẬP PHIẾU YÊU CẦU NGUYÊN LIỆU
+                        </button>
+                        <p class="text-muted mt-2">
+                            <i class="bi bi-info-circle-fill"></i> Phiếu sẽ được lập với ngày hiện tại và trạng thái “Chờ duyệt”.
+                        </p>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
-</body>
-</html>
+
+<?php include_once("../../layout/footer.php"); ?>
