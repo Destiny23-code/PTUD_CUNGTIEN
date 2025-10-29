@@ -1,5 +1,5 @@
 <?php
-require_once(__DIR__ . "/../../controller/cKeHoachSX.php");
+require_once(__DIR__ . "/../../class/clsKeHoachModel.php");
 $ctrl = new cKeHoachSX();
 
 $action = $_GET['action'] ?? 'dsKeHoach';
