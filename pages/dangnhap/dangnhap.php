@@ -1,4 +1,6 @@
-<?php include_once("../../layout/dangnhap/login.php")?>
+<?php
+session_start();
+ include_once("../../layout/dangnhap/login.php")?>
 
 <form method="POST">
     <div class="mb-3">
@@ -10,18 +12,17 @@
     </div>
 
     <input type="submit" name="btnLogin" class="btn btn-primary w-100 mt-3" value="Đăng nhập">
-    
+
     <?php if(isset($_GET['error'])): 
         $message = ($_GET['error'] == 2) ? "Vui lòng nhập đầy đủ thông tin." : "Tên đăng nhập hoặc mật khẩu không chính xác!";
     ?>
-        <div class="alert alert-danger mt-3" role="alert">
-            <?php echo $message; ?>
-        </div>
+    <div class="alert alert-danger mt-3" role="alert">
+        <?php echo $message; ?>
+    </div>
     <?php endif; ?>
 </form>
 
 <?php
-session_start();
 if(isset($_POST["btnLogin"])) {
     require_once("../../class/clslogin.php"); 
     $p = new login(); 
