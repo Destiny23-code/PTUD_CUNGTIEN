@@ -150,7 +150,7 @@ var currentKHSX = null;
 function xemChiTiet(maKHSX) {
   currentKHSX = maKHSX;
   $.ajax({
-    url: 'index.php',
+    url: 'pheduyet.php',
     type: 'GET',
     data: { action: 'xemChiTiet', maKHSX: maKHSX },
     dataType: 'json',
@@ -254,7 +254,7 @@ function pheDuyet(hanhDong) {
   }
 
   $.ajax({
-    url: 'index.php?action=pheDuyet',
+    url: 'pheduyet.php?action=pheDuyet',
     type: 'POST',
     dataType: 'json',
     data: { maKHSX: currentKHSX, hanhDong: hanhDong, lyDo: lyDo },

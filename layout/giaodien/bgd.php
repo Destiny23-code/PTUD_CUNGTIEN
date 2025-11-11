@@ -25,7 +25,7 @@ $p->checkPagePermission('6');
         // Giả định các file trang chủ, kế hoạch và báo cáo nằm trong thư mục /pages/khsx/
         
         $link_trang_chu          = $base_path . '/pages/bgd/index.php';             // Trang chủ chung của hệ thống (hoặc /pages/khsx/index.php)
-        $link_ds_khsx            = $base_path . '/pages/pkh/dskhsx.php';  // Danh sách kế hoạch sản xuất
+        $link_ds_khsx            = $base_path . '/pages/bgd/dskhsx.php';  // Danh sách kế hoạch sản xuất
         $link_baocao_thongke     = $base_path . '/pages/bgd/bctk.php';    // Báo cáo thống kê (Giả định tên file là bctk.php)
         
         // --- CÁC HÀNH ĐỘNG KHÁC CÓ THỂ THÊM VÀO ĐÂY ---
