@@ -1,6 +1,8 @@
 <?php include_once('../../layout/header.php'); ?>
 <?php
-session_start();
+if (!isset($_SESSION)) {
+    session_start();
+}
 require_once("../../class/clslogin.php"); 
 $p = new login();
     if (isset($_SESSION['id']) && isset($_SESSION['user']) && isset($_SESSION['pass']) && isset($_SESSION['phanquyen'])) {
@@ -19,12 +21,12 @@ $p->checkPagePermission('2');
     <?php 
       // Base path (đường dẫn gốc)
       $link_trangchu    = $base_path . '/pages/qdx/index.php';
-      $link_ds_kehoach  = $base_path . '/pages/kehoach/danhsach.php';
-      $link_phanbo_dc   = $base_path . '/pages/phanbo/daychuyen.php';
-      $link_phancong_nc = $base_path . '/pages/phancong/nhancong.php';
-      $link_ycnl        = $base_path . '/pages/yeucaunguyenlieu/pycnl.php';
-      $link_yckd        = $base_path . '/pages/yeucaukiemdinh/pyckd.php';
-      $link_thongke     = $base_path . '/pages/thongke/sanluong.php';
+      $link_ds_kehoach  = $base_path . '/pages/pkh/dskhsx.php';
+      $link_phanbo_dc   = $base_path . '/pages/qdx/pbdc.php';
+      $link_phancong_nc = $base_path . '/pages/qdx/pcnc.php';
+      $link_ycnl        = $base_path . '/pages/qdx/pycnl.php';
+      $link_yckd        = $base_path . '/pages/qdx/pyckd.php';
+      $link_thongke     = $base_path . '/pages/qdx/thongkesanxuat.php';
     ?>
 
     <!-- TRANG CHỦ -->
