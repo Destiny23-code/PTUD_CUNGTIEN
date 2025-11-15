@@ -156,8 +156,7 @@ class KeHoachModel extends ketnoi {
         $link->close();
         return $result;
     }
-
-
+    
     /**
      * Cập nhật trạng thái của Đơn hàng.
      */
@@ -271,6 +270,111 @@ class KeHoachModel extends ketnoi {
         $ok = mysqli_query($link, $sql);
         mysqli_close($link);
         return $ok ? true : false;
+    }
+    
+    public function thongKeKHSXPheDuyet() {
+        $link = $this->connect();
+        $sql = "SELECT 
+                    COUNT(maKHSX) AS TongKH,
+                    SUM(CASE WHEN trangThai = N'Chờ phê duyệt' THEN 1 ELSE 0 END) AS ChoPheDuyet,
+                    SUM(CASE WHEN trangThai = N'Đã duyệt' THEN 1 ELSE 0 END) AS DaDuyet,
+                    SUM(CASE WHEN trangThai = N'Từ chối' THEN 1 ELSE 0 END) AS TuChoi
+                FROM KEHOACHSANXUAT";
+        $data = $this->laydulieu($link, $sql);
+        $link->close();
+        return is_array($data) && count($data) > 0 ? $data[0] : array(); 
+    }
+
+    public function getDanhSachKeHoachChoBaoCao() {
+        $link = $this->connect();
+        $sql = "SELECT 
+                    maKHSX, 
+                    maDH,
+                    ngayLap, 
+                    trangThai
+                FROM KEHOACHSANXUAT
+                ORDER BY ngayLap DESC";
+        $data = $this->laydulieu($link, $sql);
+        $link->close();
+        return is_array($data) ? $data : array();
+    }
+    
+    /*Báo cáo chất lượng*/
+    public function tinhTyLeChatLuong() {
+        $link = $this->connect();
+        
+        $sql = "SELECT 
+                    COUNT(maPKD) AS TongPhieu,
+                    SUM(CASE WHEN ketQuaBaoCao = N'Đạt' THEN 1 ELSE 0 END) AS Dat,
+                    SUM(CASE WHEN ketQuaBaoCao = N'Không đạt' THEN 1 ELSE 0 END) AS KhongDat
+                FROM PHIEUBAOCAOCHATLUONG
+                WHERE ketQuaBaoCao IN (N'Đạt', N'Không đạt')";
+        
+        $data = $this->laydulieu($link, $sql);
+        $link->close();
+        
+        $tong = 0;
+        $dat = 0;
+        $loi = 0;
+        
+        if (is_array($data) && count($data) > 0) {
+            $tong = isset($data[0]['TongPhieu']) ? (int)$data[0]['TongPhieu'] : 0;
+            $dat = isset($data[0]['Dat']) ? (int)$data[0]['Dat'] : 0;
+            $loi = isset($data[0]['KhongDat']) ? (int)$data[0]['KhongDat'] : 0;
+        }
+        
+        if ($tong > 0) {
+            return array(
+                'TyLeDat' => $dat / $tong,
+                'TyLeLoi' => $loi / $tong,
+                'Dat' => $dat,
+                'Loi' => $loi
+            );
+        }
+        
+        return array('TyLeDat' => 0, 'TyLeLoi' => 0, 'Dat' => 0, 'Loi' => 0);
+    }
+
+    // ---Báo cáo sản lượng---
+    
+    public function thongKeSanLuongTheoLoaiSP() {
+        $link = $this->connect();
+        $sql = "SELECT 
+                    sp.loaiSP, 
+                    SUM(ctdh.soLuong) AS TongSanLuong
+                FROM CHITIET_DONHANG ctdh
+                JOIN SANPHAM sp ON ctdh.maSP = sp.maSP
+                JOIN DONHANG dh ON ctdh.maDH = dh.maDH
+                WHERE dh.trangThai = N'Hoàn thành'
+                GROUP BY sp.loaiSP";
+        $data = $this->laydulieu($link, $sql);
+        $link->close();
+        return is_array($data) ? $data : array();
+    }
+
+    public function getSanLuongTheoThang($year = null) {
+        $currentYear = (!is_null($year) && $year != '') ? $year : date('Y');
+        
+        $link = $this->connect();
+        $sql = "SELECT 
+                    MONTH(ngaySX) AS Thang, 
+                    SUM(soLuong) AS TongSanLuong
+                FROM LOSANPHAM
+                WHERE YEAR(ngaySX) = " . (int)$currentYear . "
+                GROUP BY MONTH(ngaySX)
+                ORDER BY Thang";
+        $data = $this->laydulieu($link, $sql);
+        $link->close();
+        return is_array($data) ? $data : array();
+    }
+  
+    public function getHieuSuatLaoDong() {
+        // Chỉ số GIẢ ĐỊNH
+        return array(
+            array('Thang' => 7, 'HieuSuat' => 84),
+            array('Thang' => 8, 'HieuSuat' => 87),
+            array('Thang' => 9, 'HieuSuat' => 89),
+        );
     }
 }
 ?>
