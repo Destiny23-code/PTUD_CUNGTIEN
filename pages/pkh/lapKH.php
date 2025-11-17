@@ -130,9 +130,9 @@ if ($maSP_chon != '' && $soLuongSP_chon > 0) {
                                                         </div>
                                                         <div class="card-body">
                                                             <div class="row mb-2">
-                                                                <div class="col-md-4"><strong>Tên KH:</strong> <?php echo htmlspecialchars($row['tenKH']); ?></div>
+                                                                <div class="col-md-4"><strong>Tên khách hàng:</strong> <?php echo htmlspecialchars($row['tenKH']); ?></div>
                                                                 <div class="col-md-4"><strong>Email:</strong> <?php echo htmlspecialchars($row['email']); ?></div>
-                                                                <div class="col-md-4"><strong>Điện thoại:</strong> <?php echo htmlspecialchars($row['dienThoai']); ?></div>
+                                                                <div class="col-md-4"><strong>Điện thoại:</strong> <?php echo htmlspecialchars($row['sDT']); ?></div>
                                                             </div>
                                                             <div class="row">
                                                                 <div class="col-12"><strong>Địa chỉ:</strong> <?php echo htmlspecialchars($row['diaChi']); ?></div>

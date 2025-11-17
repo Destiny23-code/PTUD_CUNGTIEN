@@ -21,7 +21,7 @@ $p->checkPagePermission('1');
       // BƯỚC 3: Định nghĩa các link (để dễ so sánh)
       // (Bạn hãy tự điều chỉnh lại đường dẫn file cho chính xác)
       $link_trangchu = $base_path . '/pages/pkh/index.php';
-      $link_ds_kehoach = $base_path . '/pages/pkh/danhsach.php';
+      $link_ds_kehoach = $base_path . '/pages/pkh/dskh.php';
       $link_lap_kehoach = $base_path . '/pages/pkh/lapKH.php';
       $link_ds_donhang = $base_path . '/pages/pkh/dsdh.php'; 
       ?>

@@ -2,7 +2,8 @@
 require_once("../../class/clskehoachsx.php");
 $ctrl = new KeHoachModel();
 $dsKeHoach = $ctrl->getDanhSachKeHoach(); // giả sử trả về array of assoc arrays
-include_once("../../layout/giaodien/bgd.php");
+//include_once("../../layout/giaodien/bgd.php");
+include_once("../../layout/giaodien/pkh.php");
 ?>
 
 <!-- Bootstraps & jQuery (Bootstrap 3) -->

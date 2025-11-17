@@ -6,14 +6,54 @@ class KeHoachModel extends ketnoi {
      * Lấy danh sách Đơn hàng chờ lập kế hoạch.
      * @return array Mảng chứa dữ liệu đơn hàng.
      */
+    public function getDSDonHang($raw_maDH, $raw_ngayDat, $raw_trangThai) {
+        $link = $this->connect();
+        
+        // 1. Làm sạch dữ liệu đầu vào (BẮT BUỘC)
+        // Model phải tự chịu trách nhiệm làm sạch dữ liệu của nó
+        $maDH = $link->real_escape_string($raw_maDH);
+        $ngayDat = $link->real_escape_string($raw_ngayDat);
+        $trangThai = $link->real_escape_string($raw_trangThai);
+        
+        // 2. XÂY DỰNG MỆNH ĐỀ WHERE
+        // (Đây là logic bạn chuyển từ dsdh.php sang)
+        $where_clauses = array(); 
+        if (!empty($maDH)) {
+            $where_clauses[] = "maDH LIKE '%{$maDH}%'";
+        }
+        if (!empty($ngayDat)) {
+            $where_clauses[] = "ngayDat = '{$ngayDat}'";
+        }
+        if (!empty($trangThai)) {
+            $where_clauses[] = "trangThai = '{$trangThai}'";
+        }
+        
+        $where = '';
+        if (count($where_clauses) > 0) {
+            $where = ' WHERE ' . implode(' AND ', $where_clauses);
+        }
+        
+        // 3. XÂY DỰNG CÂU TRUY VẤN SQL HOÀN CHỈNH
+        $sql = "SELECT maDH, maKH, ngayDat, ngayGiaoDuKien, trangThai, ghiChu 
+                FROM DONHANG 
+                {$where}
+                ORDER BY ngayDat DESC";
+
+        // 4. Lấy dữ liệu, đóng kết nối và trả về
+        $data = $this->laydulieu($link, $sql); 
+        $link->close();
+        
+        return $data;
+    }
     public function getDSDonHangCho() {
         $link = $this->connect();
         $sql = "SELECT 
                 d.maDH, 
                 d.ngayDat, 
                 d.ngayGiaoDuKien, 
-                d.trangThai
+                d.trangThai, kh.tenKH, kh.diaChi, kh.sDT, kh.email
             FROM DONHANG d
+            JOIN KHACHHANG kh ON d.maKH = kh.maKH
             WHERE d.trangThai = N'Mới tạo'
             ORDER BY d.ngayDat DESC";
         
@@ -52,9 +92,8 @@ class KeHoachModel extends ketnoi {
         $maDH_safe = $link->real_escape_string($maDH);
 
         $sqlInfo = "SELECT 
-                        d.maDH, d.ngayDat, d.ngayGiaoDuKien, d.trangThai, 
-                        d.nguoiPhuTrach, d.ghiChu,
-                        kh.tenKH, kh.diaChi, kh.email, kh.dienThoai
+                        d.maDH, d.ngayDat, d.ngayGiaoDuKien, d.trangThai, d.ghiChu,
+                        kh.tenKH, kh.diaChi, kh.email, kh.sDT
                     FROM DONHANG d
                     JOIN KHACHHANG kh ON d.maKH = kh.maKH
                     WHERE d.maDH = '$maDH_safe'";
@@ -178,22 +217,56 @@ class KeHoachModel extends ketnoi {
     /**
      * ✅ Lấy danh sách kế hoạch sản xuất
      */
+    public function getDSKeHoach($raw_maKH = '', $raw_ngayLap = '', $raw_trangThai = '') {
+        $link = $this->connect();
+        
+        // 1️⃣ Làm sạch dữ liệu đầu vào
+        $maKH = $link->real_escape_string($raw_maKH);
+        $ngayLap = $link->real_escape_string($raw_ngayLap);
+        $trangThai = $link->real_escape_string($raw_trangThai);
+        
+        // 2️⃣ Xây dựng mệnh đề WHERE
+        $where_clauses = array();
+        if (!empty($maKH)) {
+            $where_clauses[] = "maKHSX LIKE '%{$maKH}%'";
+        }
+        if (!empty($ngayLap)) {
+            $where_clauses[] = "DATE(ngayLap) = '{$ngayLap}'";
+        }
+        if (!empty($trangThai)) {
+            $where_clauses[] = "LOWER(trangThai) = LOWER('{$trangThai}')";
+        }
+        
+        $where = '';
+        if (count($where_clauses) > 0) {
+            $where = ' WHERE ' . implode(' AND ', $where_clauses);
+        }
+        
+        // 3️⃣ Xây dựng câu truy vấn SQL
+        $sql = "SELECT maKHSX, maDH, nguoiLap, ngayLap, hinhThuc, ngayBDDK, ngayKTDK, trangThai, ghiChu, lyDoTuChoi
+                FROM KEHOACHSANXUAT
+                {$where}
+                ORDER BY ngayLap DESC";
+
+        // 4️⃣ Lấy dữ liệu, đóng kết nối và trả về
+        $data = $this->laydulieu($link, $sql);
+        $link->close();
+        
+        return $data;
+    }
+
+
+
+
     public function getDanhSachKeHoach() {
         $link = $this->connect();
-        $sql = "SELECT maKHSX, maDH, nguoiLap, ngayLap, hinhThuc, ngayBDDK, ngayKTDDK, trangThai, ghiChu, lyDoTuChoi
+        $sql = "SELECT maKHSX, maDH, nguoiLap, ngayLap, hinhThuc, ngayBDDK, ngayKTDK, trangThai, ghiChu, lyDoTuChoi
                 FROM KEHOACHSANXUAT
                 ORDER BY ngayLap DESC";
-        $result = mysqli_query($link, $sql);
 
-        $data = array();
-        if ($result) {
-            while ($row = mysqli_fetch_assoc($result)) {
-                $data[] = $row;
-            }
-            mysqli_free_result($result);
-        }
-
-        mysqli_close($link);
+        $data = $this->laydulieu($link, $sql); 
+        $link->close();
+        
         return $data;
     }
 
