@@ -1,85 +1,218 @@
 <?php
-require_once("clsconnect.php"); 
+require_once("clsconnect.php");
 
-class clsLapPYCNL extends ketnoi {
+class LapPYCNL extends ketnoi {
     private $conn;
-    public function __construct($conn) { $this->conn = $conn; }
 
-    // ✅ Lấy danh sách nguyên liệu đạt chuẩn
-    public function getNguyenLieu() {
-        $sql = "SELECT maNL, tenNL, moTa, dinhMuc, donViTinh, soLuongTon 
-                FROM nguyenlieu WHERE trangThai = 'Đạt'";
-        return $this->conn->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+    public function __construct() {
+        $this->conn = $this->connect();
     }
 
-    // ✅ Lấy danh sách kế hoạch sản xuất
     public function getKeHoachSanXuat() {
-        $sql = "SELECT maKH, tenSP, soLuongCanSX FROM kehoachsanxuat";
-        return $this->conn->query($sql)->fetchAll(PDO::FETCH_ASSOC);
-    }
-
-    // ✅ Thêm phiếu + chi tiết phiếu
-    public function insertPhieuYeuCau($nguoiLap, $details) {
         try {
-            $this->conn->beginTransaction();
-
-            // 1️⃣ Tạo phiếu mới
-            $stmt = $this->conn->prepare("INSERT INTO phieuyeucaunguyenlieu (ngayLap, nguoiLap, trangThai)
-                                          VALUES (CURDATE(), :nguoiLap, 'Chờ duyệt')");
-            $stmt->execute([':nguoiLap' => $nguoiLap]);
-            $maPYCNL = $this->conn->lastInsertId();
-
-            // 2️⃣ Lặp chi tiết nguyên liệu
-            $sqlDetail = "INSERT INTO chitietphieuyeucaunguyenlieu (maPYCNL, maKH, maNL, soLuongYeuCau)
-                          VALUES (:maPYCNL, :maKH, :maNL, :soLuongYeuCau)";
-            $stmtDetail = $this->conn->prepare($sqlDetail);
-
-            foreach ($details as $item) {
-                $stmtDetail->execute([
-                    ':maPYCNL' => $maPYCNL,
-                    ':maKH' => $item['maKH'],
-                    ':maNL' => $item['maNL'],
-                    ':soLuongYeuCau' => $item['soLuongYeuCau']
-                ]);
-
-                // 3️⃣ Trừ tồn kho tạm
-                $upd = $this->conn->prepare("UPDATE nguyenlieu 
-                                             SET soLuongTon = soLuongTon - :sl 
-                                             WHERE maNL = :maNL AND soLuongTon >= :sl");
-                $upd->execute([
-                    ':sl' => $item['soLuongYeuCau'],
-                    ':maNL' => $item['maNL']
-                ]);
-            }
-
-            $this->conn->commit();
-            return true;
+            // Lấy kế hoạch sản xuất từ bảng kehoachsanxuat, donhang và chitiet_donhang
+            $sql = "SELECT DISTINCT kh.maKHSX, kh.ngayLap, kh.hinhThuc,
+                           dh.maDH, dh.soLuong as soLuongCanSX,
+                           sp.maSP, sp.tenSP
+                    FROM kehoachsanxuat kh
+                    INNER JOIN donhang dh ON kh.maDH = dh.maDH
+                    INNER JOIN chitiet_donhang ct ON dh.maDH = ct.maDH
+                    INNER JOIN sanpham sp ON ct.maSP = sp.maSP
+                    WHERE kh.trangThai = 'Đã duyệt'
+                    ORDER BY kh.ngayLap DESC";
+            
+            error_log("SQL KeHoach: " . $sql);
+            $result = $this->laydulieu($this->conn, $sql);
+            error_log("Số kế hoạch tìm thấy: " . count($result));
+            return $result;
         } catch (Exception $e) {
-            $this->conn->rollBack();
-            error_log($e->getMessage());
-            return false;
+            error_log("Lỗi getKeHoachSanXuat: " . $e->getMessage());
+            return array();
         }
     }
 
-    // ✅ Lấy danh sách phiếu yêu cầu
-    public function getAllPhieuYeuCau() {
-        $sql = "SELECT p.maPYCNL, p.ngayLap, u.hoTen AS nguoiLap, p.trangThai 
-                FROM phieuyeucaunguyenlieu p
-                JOIN nhanvien u ON p.nguoiLap = u.maNV
-                ORDER BY p.maPYCNL DESC";
-        return $this->conn->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+    public function getKeHoachSanXuatById($maKHSX) {
+        try {
+            $ma = intval($maKHSX);
+            if ($ma <= 0) return null;
+            
+            $sql = "SELECT kh.maKHSX, kh.ngayLap, kh.hinhThuc, kh.nguoiLap,
+                           dh.maDH, dh.soLuong as soLuongCanSX, dh.ngayDat, dh.ngayGiaoDuKien
+                    FROM kehoachsanxuat kh
+                    INNER JOIN donhang dh ON kh.maDH = dh.maDH
+                    WHERE kh.maKHSX = {$ma}";
+            
+            $result = $this->laydulieu($this->conn, $sql);
+            return !empty($result) ? $result[0] : null;
+        } catch (Exception $e) {
+            error_log("Lỗi getKeHoachSanXuatById: " . $e->getMessage());
+            return null;
+        }
     }
 
-    // ✅ Lấy chi tiết phiếu yêu cầu nguyên liệu
-    public function getChiTietPhieu($maPYCNL) {
-        $sql = "SELECT c.maCTPYCNL, n.tenNL, k.tenSP, c.soLuongYeuCau
-                FROM chitietphieuyeucaunguyenlieu c
-                JOIN nguyenlieu n ON c.maNL = n.maNL
-                JOIN kehoachsanxuat k ON c.maKH = k.maKH
-                WHERE c.maPYCNL = :ma";
-        $stmt = $this->conn->prepare($sql);
-        $stmt->execute([':ma' => $maPYCNL]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    public function getNguyenLieu() {
+        try {
+            $sql = "SELECT maNL, tenNL, donViTinh, soLuongTon 
+                    FROM nguyenlieu 
+                    WHERE trangThai = 'Đạt' 
+                    ORDER BY tenNL";
+            $result = $this->laydulieu($this->conn, $sql);
+            return $result;
+        } catch (Exception $e) {
+            error_log("Lỗi getNguyenLieu: " . $e->getMessage());
+            return array();
+        }
+    }
+    
+    public function getDinhMucNguyenLieuByKHSX($maKHSX) {
+        try {
+            $ma = intval($maKHSX);
+            if ($ma <= 0) return array();
+            
+            // Sửa lại truy vấn với tên cột chính xác
+            $sql = "SELECT ct.maNL, ct.soLuong1SP as soLuongTrong1SP, 
+                           nl.tenNL, nl.donViTinh, nl.soLuongTon as tonKhoHienTai
+                    FROM khsx_chitiet_nguyenlieu ct
+                    JOIN nguyenlieu nl ON ct.maNL = nl.maNL
+                    WHERE ct.maKHSX = {$ma}";
+            
+            error_log("SQL DinhMuc: " . $sql);
+            $result = $this->laydulieu($this->conn, $sql);
+            return $result;
+        } catch (Exception $e) {
+            error_log("Lỗi getDinhMucNguyenLieuByKHSX: " . $e->getMessage());
+            return array();
+        }
+    }
+
+    public function getAllXuong() {
+        try {
+            $sql = "SELECT maXuong, tenXuong, diaChi, sDT FROM xuong ORDER BY maXuong";
+            $result = $this->laydulieu($this->conn, $sql);
+            return $result;
+        } catch (Exception $e) {
+            error_log("Lỗi getAllXuong: " . $e->getMessage());
+            return array();
+        }
+    }
+
+    public function getXuongById($maXuong) {
+        try {
+            $ma = intval($maXuong);
+            if ($ma <= 0) return null;
+            $sql = "SELECT maXuong, tenXuong, diaChi, sDT FROM xuong WHERE maXuong = {$ma}";
+            $data = $this->laydulieu($this->conn, $sql);
+            return !empty($data) ? $data[0] : null;
+        } catch (Exception $e) {
+            error_log("Lỗi getXuongById: " . $e->getMessage());
+            return null;
+        }
+    }
+
+    public function insertPhieuYeuCau($maKHSX, $nguoiLap, $maXuong, $details, $ghiChu = '') {
+        if (empty($details)) return "Chi tiết yêu cầu không hợp lệ.";
+
+        $conn = $this->conn;
+        $conn->autocommit(false);
+        
+        try {
+            $maPhieu = "YE" . date("YmdHis");
+            $maKHSX_int = intval($maKHSX);
+            $maXuong_int = intval($maXuong);
+            $nguoiLap_esc = $conn->real_escape_string($nguoiLap);
+            $ghiChu_esc = $conn->real_escape_string($ghiChu);
+            
+            $sql_py = "INSERT INTO phieuyeucaunguyenlieu (maPhieu, maKHSX, ngayLap, nguoiLap, trangThai, maXuong, ghiChu)
+                       VALUES ('{$maPhieu}', {$maKHSX_int}, CURDATE(), '{$nguoiLap_esc}', 'Chờ duyệt', {$maXuong_int}, '{$ghiChu_esc}')";
+            
+            if (!$conn->query($sql_py)) {
+                throw new Exception("Lỗi khi tạo phiếu: " . $conn->error);
+            }
+
+            $maPYCNL = $conn->insert_id;
+
+            foreach ($details as $item) {
+                $maNL = intval($item['maNL']);
+                $soLuongStr = str_replace('.', '', $item['soLuongYeuCau']);
+                $soLuong = floatval(str_replace(',', '.', $soLuongStr));
+                
+                if ($maNL > 0 && $soLuong > 0) {
+                    $sql_ct = "INSERT INTO chitietphieuyeucaunguyenlieu (maPYCNL, maNL, soLuongYeuCau)
+                               VALUES ({$maPYCNL}, {$maNL}, {$soLuong})";
+                    
+                    if (!$conn->query($sql_ct)) {
+                        throw new Exception("Lỗi khi thêm chi tiết: " . $conn->error);
+                    }
+                }
+            }
+
+            $conn->commit();
+            $conn->autocommit(true);
+            return true;
+
+        } catch (Exception $e) {
+            $conn->rollback();
+            $conn->autocommit(true);
+            error_log("insertPhieuYeuCau error: " . $e->getMessage());
+            return $e->getMessage();
+        }
+    }
+
+    public function getPhieuYeuCauById($maPYCNL) {
+        try {
+            $ma = intval($maPYCNL);
+            if ($ma <= 0) return null;
+            
+            $sql = "SELECT py.*, 
+                           kh.maKHSX, kh.hinhThuc,
+                           dh.soLuong as soLuongCanSX,
+                           sp.tenSP, sp.donViTinh as donViTinhSP,
+                           x.tenXuong, x.diaChi as diaChiXuong,
+                           nv.tenNV as tenNguoiLap
+                    FROM phieuyeucaunguyenlieu py
+                    LEFT JOIN kehoachsanxuat kh ON py.maKHSX = kh.maKHSX
+                    LEFT JOIN donhang dh ON kh.maDH = dh.maDH
+                    LEFT JOIN chitiet_donhang ct ON dh.maDH = ct.maDH
+                    LEFT JOIN sanpham sp ON ct.maSP = sp.maSP
+                    LEFT JOIN xuong x ON py.maXuong = x.maXuong
+                    LEFT JOIN nhanvien nv ON py.nguoiLap = nv.maNV
+                    WHERE py.maPYCNL = {$ma}
+                    LIMIT 1";
+            
+            $result = $this->laydulieu($this->conn, $sql);
+            return !empty($result) ? $result[0] : null;
+        } catch (Exception $e) {
+            error_log("Lỗi getPhieuYeuCauById: " . $e->getMessage());
+            return null;
+        }
+    }
+
+    public function getChiTietPhieuYeuCau($maPYCNL) {
+        try {
+            $ma = intval($maPYCNL);
+            if ($ma <= 0) return array();
+            
+            $sql = "SELECT ct.*, 
+                           nl.tenNL, nl.donViTinh, nl.soLuongTon
+                    FROM chitietphieuyeucaunguyenlieu ct
+                    JOIN nguyenlieu nl ON ct.maNL = nl.maNL
+                    WHERE ct.maPYCNL = {$ma}
+                    ORDER BY ct.maCTPYCNL";
+            
+            $result = $this->laydulieu($this->conn, $sql);
+            return $result;
+        } catch (Exception $e) {
+            error_log("Lỗi getChiTietPhieuYeuCau: " . $e->getMessage());
+            return array();
+        }
+    }
+
+    public function testConnection() {
+        if ($this->conn && $this->conn->ping()) {
+            return "Kết nối database thành công";
+        } else {
+            return "Lỗi kết nối database";
+        }
     }
 }
 ?>
