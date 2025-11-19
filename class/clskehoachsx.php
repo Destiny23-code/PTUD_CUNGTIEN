@@ -334,7 +334,27 @@ class KeHoachModel extends ketnoi {
         
         return array('TyLeDat' => 0, 'TyLeLoi' => 0, 'Dat' => 0, 'Loi' => 0);
     }
-
+        public function getPhieuBaoCaoMoiNhat() {
+        $link = $this->connect();
+        
+        $sql = "SELECT p.*, nv.tenNV 
+                FROM PHIEUBAOCAOCHATLUONG p
+                LEFT JOIN NHANVIEN nv ON p.nguoiLap = nv.iduser
+                ORDER BY p.maPKD DESC 
+                LIMIT 1";
+        
+        $data = $this->laydulieu($link, $sql);
+        $link->close();
+        
+        if (is_array($data) && count($data) > 0) {
+            $row = $data[0];
+            if (!empty($row['tenNV'])) {
+                $row['nguoiLap'] = $row['tenNV'];
+            }
+            return $row;
+        }
+        return null;
+    }
     // ---Báo cáo sản lượng---
     
     public function thongKeSanLuongTheoLoaiSP() {
