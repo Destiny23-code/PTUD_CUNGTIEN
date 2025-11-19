@@ -23,7 +23,7 @@ require_once("../../class/clsLapBCCL.php"); // Class LapBCCL
 $maPhieu   = isset($_GET['maPhieu']) ? $_GET['maPhieu'] : '';
 $maLo      = isset($_GET['maLo']) ? $_GET['maLo'] : '';
 $ngayLap   = isset($_GET['ngayLap']) ? $_GET['ngayLap'] : '';
-$tenNV     = isset($_GET['tenNV']) ? $_GET['tenNV'] : '';
+$tenNV     = isset($_SESSION['hoTen']) ? $_SESSION['hoTen'] : '';
 $sDT       = isset($_GET['sDT']) ? $_GET['sDT'] : '';
 $ngaySX    = isset($_GET['ngaySX']) ? $_GET['ngaySX'] : '';
 $SoLuong   = isset($_GET['SoLuong']) ? $_GET['SoLuong'] : '';
@@ -36,7 +36,7 @@ $tieuChiList = preg_split('/[,;\n]+/', $tieuChi, -1, PREG_SPLIT_NO_EMPTY);
 // Xử lý POST khi bấm "Lập phiếu"
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $ngayLap = isset($_POST['ngayLap']) ? trim($_POST['ngayLap']) : '';
-  $nguoiLap = isset($_POST['maNV']) ? trim($_POST['maNV']) : '';
+  $nguoiLap = isset($_SESSION['hoTen']) ? trim($_SESSION['hoTen']) : '';
   $maLo = isset($_POST['maLo']) ? trim($_POST['maLo']) : '';
   $maPhieu = isset($_POST['maPhieu']) ? trim($_POST['maPhieu']) : '';
   $tieuChiArr = isset($_POST['tieuChi']) ? $_POST['tieuChi'] : array();

@@ -14,10 +14,8 @@ if (isset($_SESSION['id']) && isset($_SESSION['user']) && isset($_SESSION['pass'
     exit();
 }
 
-include_once('../../layout/giaodien/qc.php');
+include_once('../../layout/giaodien/khotp.php');
 include_once('../../class/clsconnect.php');
-require_once('../../class/clsCanhBao.php');
-$canhBao = new CanhBao();
 
 // Kết nối CSDL
 $ketnoiObj = new ketnoi();
@@ -115,14 +113,12 @@ $stt = 1;
                     <?php
                     if (is_array($data_list) && count($data_list) > 0) {
                         foreach ($data_list as $row) {
-                            $rowClass = $canhBao->getRowClass($row['ngayHetHan']);
-                            $badge = $canhBao->getWarningBadge($row['ngayHetHan']);
-                            echo "<tr class='$rowClass'>";
+                            echo "<tr>";
                             echo "<td>" . $stt++ . "</td>";
                             echo "<td>" . htmlspecialchars($row['maLo']) . "</td>";
                             // echo "<td>" . htmlspecialchars($row['maSP']) . "</td>";
                             echo "<td>" . htmlspecialchars($row['ngaySX']) . "</td>";
-                            echo "<td>" . htmlspecialchars($row['ngayHetHan']) . " $badge</td>";
+                            echo "<td>" . htmlspecialchars($row['ngayHetHan']) . "</td>";
                             echo "<td>" . htmlspecialchars($row['SoLuong']) . "</td>";
                             echo "<td>" . htmlspecialchars($row['trangthai']) . "</td>";
                             echo "</tr>";
