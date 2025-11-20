@@ -1,7 +1,6 @@
 <?php
 // Bao gồm session, header, và class như trên
 include_once('../../layout/giaodien/qc.php');
-include_once('../../class/clsLapPYCKD.php');
 
 $model = new clsLapPYCKD(new PDO('mysql:host=localhost;dbname=qlsx', 'root', ''));
 $trangThai = isset($_GET['trangThai']) ? $_GET['trangThai'] : '';
