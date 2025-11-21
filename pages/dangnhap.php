@@ -1,4 +1,7 @@
-<?php include_once("../layout/dangnhap/login.php")?>
+<?php 
+require_once("../class/session_init.php");
+include_once("../layout/dangnhap/login.php")
+?>
 
 <form method="POST">
     <div class="mb-3">
@@ -10,21 +13,18 @@
     </div>
 
     <input type="submit" name="btnLogin" class="btn btn-primary w-100 mt-3" value="Đăng nhập">
-    
+
     <?php 
-    // HIỂN THỊ THÔNG BÁO LỖI ĐĂNG NHẬP
     if(isset($_GET['error'])): 
         $message = ($_GET['error'] == 2) ? "Vui lòng nhập đầy đủ thông tin." : "Tên đăng nhập hoặc mật khẩu không chính xác!";
     ?>
-        <div class="alert alert-danger mt-3" role="alert">
-            <?php echo $message; ?>
-        </div>
+    <div class="alert alert-danger mt-3" role="alert">
+        <?php echo $message; ?>
+    </div>
     <?php endif; ?>
-
 </form>
 
 <?php
-session_start();
 if(isset($_POST["btnLogin"])) {
     require_once("../class/clslogin.php"); 
     $p = new login(); 
@@ -35,13 +35,17 @@ if(isset($_POST["btnLogin"])) {
         $phanquyen_result = $p->mylogin($user, $pass);
         
         if ($phanquyen_result && $phanquyen_result != 0) {
+
+            // ← THÊM DÒNG NÀY ĐỂ DASHBOARD NHẬN DIỆN ĐƯỢC
+            $_SESSION['maLoai'] = $phanquyen_result;
+
             $redirect_url = "../trangchu/index.php";
 
             switch ($phanquyen_result) {
                 case '1': $redirect_url = "../pages/pkh/index.php"; break;
                 case '2': $redirect_url = "../layout/giaodien/qdx.php"; break;
                 case '3': $redirect_url = "../layout/giaodien/khonl.php"; break;
-                case '4': $redirect_url = "../layout/giaodien/khotp.php"; break;
+                case '4': $redirect_url = "kho_tp/index.php"; break;   // ← Đúng đường dẫn
                 case '5': $redirect_url = "../layout/giaodien/qc.php"; break;
                 case '6': $redirect_url = "../layout/giaodien/bgd.php"; break;
             }

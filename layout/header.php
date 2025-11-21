@@ -1,12 +1,14 @@
-<?php include_once('../../class/clsconnect.php'); ?>
+<?php 
+require_once('../../class/session_init.php');
+include_once('../../class/clsconnect.php'); 
+?>
 
 <?php 
 // BƯỚC 1: Lấy đường dẫn trang hiện tại (loại bỏ query string nếu có, vd: ?id=1)
 $current_path = strtok($_SERVER["REQUEST_URI"], '?'); 
 
 // BƯỚC 2: Định nghĩa đường dẫn gốc của dự án
-$base_path = '/ptud_cungtien'; 
-session_start();
+$base_path = '/ptud_cungtien';
 ?>
 
 <!DOCTYPE html>

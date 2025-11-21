@@ -1,123 +1,119 @@
 <?php
-session_start();
-require_once("../../class/clsNhapKho.php");
-require_once("../../class/clsconnect.php");
+require_once('../../class/session_init.php');
+require_once('../../class/clsconnect.php');
+header('Content-Type: application/json');
 
-// Kiểm tra đăng nhập và dữ liệu gửi lên
-if (!isset($_SESSION['maNV'])) {
-    echo "<script>alert('Vui lòng đăng nhập để thực hiện chức năng này!'); window.location='../../pages/dangnhap/dangnhap.php';</script>";
+if (!isset($_SESSION['hoTen'])) {
+    echo json_encode(['status' => 'error', 'message' => 'Chưa đăng nhập']);
     exit;
 }
 
-if (!isset($_POST["dsLo"]) || !is_array($_POST["dsLo"]) || count($_POST["dsLo"]) == 0) {
-    echo "<script>alert('Vui lòng chọn ít nhất một lô sản phẩm!'); history.back();</script>";
-    exit;
-}
+$input = json_decode(file_get_contents('php://input'), true);
+$items = $input['items'] ?? [];
 
-// Lấy mã nhân viên từ session thay vì dùng tên
-$nguoiLap = $_SESSION['maNV'];
-$ngayLap = $_POST["ngayLap"];
-$maPhieu = $_POST["maPhieu"];
-$dsLo = $_POST["dsLo"];
-
-if (empty($maPhieu) || empty($ngayLap)) {
-    echo "<script>alert('Vui lòng điền đầy đủ thông tin phiếu nhập!'); history.back();</script>";
+if (empty($items)) {
+    echo json_encode(['status' => 'error', 'message' => 'Không có dữ liệu xuất kho']);
     exit;
 }
 
 $conn = (new ketnoi())->connect();
-if (!$conn) {
-    echo "<script>alert('Lỗi kết nối cơ sở dữ liệu.'); history.back();</script>";
-    exit;
-}
+$conn->autocommit(false);
 
-// Nếu table chi tiết phiếu nhập kho chưa tồn tại, tạo nó tự động
-$createCTTable = "CREATE TABLE IF NOT EXISTS `chitiet_phieunhapkho` (
-    `maCTPNK` INT NOT NULL AUTO_INCREMENT,
-    `maPNK` INT NOT NULL,
-    `maLo` INT NOT NULL,
-    `soLuongNhap` INT NOT NULL,
-    `ghiChu` VARCHAR(255) DEFAULT NULL,
-    PRIMARY KEY (`maCTPNK`),
-    INDEX (`maPNK`),
-    INDEX (`maLo`),
-    CONSTRAINT `fk_ctpnk_pnk` FOREIGN KEY (`maPNK`) REFERENCES `phieunhapkho`(`maPNK`) ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT `fk_ctpnk_malo` FOREIGN KEY (`maLo`) REFERENCES `losanpham`(`maLo`) ON DELETE RESTRICT ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;";
+try {
+    $ngayXuat = date('Y-m-d');
+    $nguoiLap = $_SESSION['hoTen'];  // hoặc $_SESSION['maNV'] nếu cần
 
-if (!$conn->query($createCTTable)) {
-    echo "<script>alert('Lỗi tạo bảng chi tiết phiếu nhập kho: " . addslashes($conn->error) . "'); history.back();</script>";
-    exit;
-}
+    // Tạo phiếu xuất kho mới
+    $conn->query("INSERT INTO phieuxuatkho (nguoiLap, ngayLap, ngayXuat, trangThai) 
+                  VALUES (1, '$ngayXuat', '$ngayXuat', 'Đã xuất')");  // tạm dùng 1, bạn có thể đổi thành maNV
+    $maPXK = $conn->insert_id;
 
-// Bắt đầu transaction để đảm bảo tính nhất quán
-$conn->begin_transaction();
+    $html = "<p class='fw-bold fs-5'>PHIẾU XUẤT KHO PXK" . sprintf("%04d", $maPXK) . 
+            " &nbsp; | &nbsp; Ngày xuất: " . date('d/m/Y') . 
+            " &nbsp; | &nbsp; Người xuất: " . htmlspecialchars($nguoiLap) . "</p>";
+    $html .= "<table class='table table-bordered table-sm'><thead class='table-success'>
+              <tr><th>ĐH</th><th>Khách hàng</th><th>Sản phẩm</th><th>SL xuất</th><th>Đơn giá</th><th>Thành tiền</th></tr></thead><tbody>";
 
-// Lấy và tính tổng số lượng một lần duy nhất
-$soLuongMap = array(); // lưu số lượng của từng lô
-$tongSL = 0;
+    $tongSL = 0;
+    $tongTien = 0;
 
-// Đọc số lượng của tất cả các lô một lần
-$maLoList = implode(',', array_map('intval', $dsLo));
-$qr = $conn->query("SELECT maLo, soLuong FROM losanpham WHERE maLo IN ($maLoList)");
-if (!$qr) {
-    $conn->rollback();
-    echo "<script>alert('Lỗi truy vấn khi đọc số lượng lô: " . $conn->error . "'); history.back();</script>";
-    exit;
-}
-while ($row = $qr->fetch_assoc()) {
-    $soLuongMap[$row['maLo']] = (int)$row['soLuong'];
-    $tongSL += (int)$row['soLuong'];
-}
+    foreach ($items as $item) {
+        $maDH = (int)$item['maDH'];
+        $maSP = (int)$item['maSP'];
+        $sl   = (int)$item['soLuong'];
 
-// Tạo phiếu nhập kho
-$nguoiLapEsc = $conn->real_escape_string($nguoiLap);
-$ngayLapEsc = $conn->real_escape_string($ngayLap);
-$sqlInsertPN = "INSERT INTO phieunhapkho(ngayNhap, nguoiLap, tongSoLuongNhap) VALUES('$ngayLapEsc', '$nguoiLapEsc', $tongSL)";
-    if (!$conn->query($sqlInsertPN)) {
-    $conn->rollback();
-    echo "<script>alert('Không thể tạo phiếu nhập kho: " . $conn->error . "'); history.back();</script>";
-    exit;
-}
-$maPNK = $conn->insert_id;
+        // Lấy thông tin chi tiết
+        $q = $conn->query("SELECT ct.donGia, kh.tenKH, sp.tenSP, sp.soLuongTon 
+                           FROM chitiet_donhang ct
+                           JOIN khachhang kh ON ct.maKH = kh.maKH
+                           JOIN sanpham sp ON ct.maSP = sp.maSP
+                           WHERE ct.maDH = $maDH AND ct.maSP = $maSP LIMIT 1");
+        $r = $q->fetch_assoc();
 
-// Lưu chi tiết từng lô và cập nhật tồn kho sản phẩm
-foreach ($dsLo as $maLoRaw) {
-    $maLo = (int)$maLoRaw;
-    if (!isset($soLuongMap[$maLo])) {
-        $conn->rollback();
-        echo "<script>alert('Lỗi: Không tìm thấy thông tin số lượng của lô " . $maLo . "'); history.back();</script>";
-        exit;
-    }
-    $soLuong = $soLuongMap[$maLo];
+        if ($sl > $r['soLuongTon']) {
+            throw new Exception("Tồn kho {$r['tenSP']} không đủ (còn {$r['soLuongTon']})");
+        }
 
-    // Thêm chi tiết
-    $sqlCT = "INSERT INTO chitiet_phieunhapkho(maPNK, maLo, soLuongNhap) VALUES($maPNK, $maLo, $soLuong)";
-    if (!$conn->query($sqlCT)) {
-    $conn->rollback();
-    echo "<script>alert('Lỗi khi lưu chi tiết phiếu: " . $conn->error . "'); history.back();</script>";
-        exit;
+        $thanhTien = $sl * $r['donGia'];
+
+        // Ghi chi tiết phiếu xuất
+        $tenKH_esc = $conn->real_escape_string($r['tenKH']);
+        $tenSP_esc = $conn->real_escape_string($r['tenSP']);
+        $conn->query("INSERT INTO chitiet_phieuxuatkho 
+                     (maPXK, maDH, maSP, soLuongXuat, ghiChu, maLo, tenKH, tenSP)
+                     VALUES ($maPXK, $maDH, $maSP, $sl, NULL, 0, '$tenKH_esc', '$tenSP_esc')");
+
+        // Trừ tồn kho tổng
+        $conn->query("UPDATE sanpham SET soLuongTon = soLuongTon - $sl WHERE maSP = $maSP");
+
+        $html .= "<tr>
+                    <td>$maDH</td>
+                    <td>" . htmlspecialchars($r['tenKH']) . "</td>
+                    <td>{$r['tenSP']}</td>
+                    <td class='text-end'>$sl</td>
+                    <td class='text-end'>" . number_format($r['donGia']) . "</td>
+                    <td class='text-end'>" . number_format($thanhTien) . "</td>
+                  </tr>";
+
+        $tongSL += $sl;
+        $tongTien += $thanhTien;
     }
 
-    // Cập nhật tồn kho sản phẩm tương ứng với lô
-    $sqlUpdate = "UPDATE sanpham sp 
-                  JOIN losanpham l ON sp.maSP = l.maSP 
-                  SET sp.soLuongTon = sp.soLuongTon + $soLuong
-                  WHERE l.maLo = $maLo";
-    if (!$conn->query($sqlUpdate)) {
-    $conn->rollback();
-    echo "<script>alert('Lỗi khi cập nhật tồn kho: " . $conn->error . "'); history.back();</script>";
-        exit;
+    $html .= "<tr class='table-info fw-bold'>
+                <td colspan='3'>TỔNG CỘNG</td>
+                <td class='text-end'>".number_format($tongSL)."</td>
+                <td></td>
+                <td class='text-end'>".number_format($tongTien)."</td>
+              </tr></tbody></table>";
+
+    // Cập nhật tổng số lượng phiếu (nếu bạn thêm cột này)
+    $conn->query("UPDATE phieuxuatkho SET trangThai = 'Đã xuất' WHERE maPXK = $maPXK");
+
+    // Tự động hoàn thành đơn hàng nếu đã xuất đủ
+    foreach ($items as $item) {
+        $maDH = $item['maDH'];
+        $check = $conn->query("SELECT 
+                                SUM(ct.soLuong) AS tongDat,
+                                COALESCE(SUM(px.soLuongXuat),0) AS tongXuat
+                               FROM chitiet_donhang ct
+                               LEFT JOIN chitiet_phieuxuatkho px ON ct.maDH=px.maDH AND ct.maSP=px.maSP
+                               WHERE ct.maDH = $maDH");
+        $c = $check->fetch_assoc();
+        if ($c['tongDat'] <= $c['tongXuat']) {
+            $conn->query("UPDATE donhang SET trangThai = 'Hoàn thành' WHERE maDH = $maDH");
+        }
     }
-}
 
-// Nếu mọi thứ ok, commit
-if (!$conn->commit()) {
+    $conn->commit();
+
+    echo json_encode([
+        'status' => 'success',
+        'maPXK' => sprintf("%04d", $maPXK),
+        'html' => $html
+    ]);
+
+} catch (Exception $e) {
     $conn->rollback();
-    echo "<script>alert('Lỗi khi lưu giao dịch (commit thất bại).'); history.back();</script>";
-    exit;
+    echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
 }
-
-echo "<script>alert('Phiếu nhập kho đã được lập thành công!'); window.location='nhapkho.php';</script>";
-exit;
 ?>
