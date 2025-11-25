@@ -14,7 +14,7 @@ if (isset($_SESSION['id']) && isset($_SESSION['user']) && isset($_SESSION['pass'
     exit();
 }
 
-include_once('../../layout/giaodien/qc.php');
+include_once('../../layout/giaodien/khotp.php');
 include_once('../../class/clsconnect.php');
 require_once('../../class/clsCanhBao.php');
 $canhBao = new CanhBao();

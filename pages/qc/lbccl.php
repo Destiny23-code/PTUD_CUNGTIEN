@@ -4,14 +4,16 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 session_start();
-require_once("../../class/clslogin.php"); 
+require_once("../../class/clslogin.php");
 $p = new login();
 
 // Kiểm tra đăng nhập
-if (!isset($_SESSION['id'], $_SESSION['user'], $_SESSION['pass'], $_SESSION['phanquyen']) ||
-    !$p->confirmlogin($_SESSION['id'], $_SESSION['user'], $_SESSION['pass'], $_SESSION['phanquyen'])) {
-    header("Location: ../dangnhap/dangnhap.php");
-    exit();
+if (
+  !isset($_SESSION['id'], $_SESSION['user'], $_SESSION['pass'], $_SESSION['phanquyen']) ||
+  !$p->confirmlogin($_SESSION['id'], $_SESSION['user'], $_SESSION['pass'], $_SESSION['phanquyen'])
+) {
+  header("Location: ../dangnhap/dangnhap.php");
+  exit();
 }
 
 include_once('../../layout/giaodien/qc.php'); // Sidebar QC
@@ -21,7 +23,7 @@ require_once("../../class/clsLapBCCL.php"); // Class LapBCCL
 $maPhieu   = isset($_GET['maPhieu']) ? $_GET['maPhieu'] : '';
 $maLo      = isset($_GET['maLo']) ? $_GET['maLo'] : '';
 $ngayLap   = isset($_GET['ngayLap']) ? $_GET['ngayLap'] : '';
-$tenNV     = isset($_GET['tenNV']) ? $_GET['tenNV'] : '';
+$tenNV     = isset($_SESSION['hoTen']) ? $_SESSION['hoTen'] : '';
 $sDT       = isset($_GET['sDT']) ? $_GET['sDT'] : '';
 $ngaySX    = isset($_GET['ngaySX']) ? $_GET['ngaySX'] : '';
 $SoLuong   = isset($_GET['SoLuong']) ? $_GET['SoLuong'] : '';
@@ -33,22 +35,75 @@ $tieuChiList = preg_split('/[,;\n]+/', $tieuChi, -1, PREG_SPLIT_NO_EMPTY);
 
 // Xử lý POST khi bấm "Lập phiếu"
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $ngayLap = $_POST['ngayLap'];
-    $nguoiLap = $_POST['maNV']; // Dùng maNV từ POST
-    $maLo = $_POST['maLo'];
-    $maPhieu = $_POST['maPhieu'];
-    $tieuChiStr = isset($_POST['tieuChi']) ? implode('; ', $_POST['tieuChi']) : '';
-    $ketQuaBaoCao = isset($_POST['ketQuaBaoCao']) ? $_POST['ketQuaBaoCao'] : ''; // Lấy từ select tổng thể
+  $ngayLap = isset($_POST['ngayLap']) ? trim($_POST['ngayLap']) : '';
+  $nguoiLap = isset($_SESSION['hoTen']) ? trim($_SESSION['hoTen']) : '';
+  $maLo = isset($_POST['maLo']) ? trim($_POST['maLo']) : '';
+  $maPhieu = isset($_POST['maPhieu']) ? trim($_POST['maPhieu']) : '';
+  $tieuChiArr = isset($_POST['tieuChi']) ? $_POST['tieuChi'] : array();
+  $ketQuaArr  = isset($_POST['ketQuaTieuChi']) ? $_POST['ketQuaTieuChi'] : array();
+  $ketQuaBaoCao = isset($_POST['ketQuaBaoCao']) ? trim($_POST['ketQuaBaoCao']) : '';
 
-    $lapBCCL = new LapBCCL();
-    $insertId = $lapBCCL->insertPhieu($ngayLap, $nguoiLap, $maLo, $maPhieu, $tieuChiStr, $ketQuaBaoCao);
+  // Kiểm tra các trường bắt buộc
+  $hasEmptyField = false;
 
-    if ($insertId) {
+  if ($ngayLap == '' || $nguoiLap == '' || $maLo == '' || $maPhieu == '') {
+    $hasEmptyField = true;
+  }
+
+  // Kiểm tra tiêu chí và kết quả
+  if (empty($tieuChiArr) || empty($ketQuaArr) || count($tieuChiArr) != count($ketQuaArr)) {
+    $hasEmptyField = true;
+  }
+
+  // Kiểm tra kết quả tổng thể
+  if ($ketQuaBaoCao == '') {
+    $hasEmptyField = true;
+  }
+
+  if ($hasEmptyField) {
+    echo "<script>alert('Bạn chưa nhập đầy đủ thông tin');</script>";
+  } else {
+    // Kiểm tra logic: nếu có tiêu chí "Không đạt" mà kết quả tổng thể lại chọn "Đạt" thì không hợp lệ
+    $coTieuChiKhongDat = false;
+    foreach ($ketQuaArr as $ketQua) {
+      if (trim($ketQua) === 'Không đạt') {
+        $coTieuChiKhongDat = true;
+        break;
+      }
+    }
+
+    if ($coTieuChiKhongDat && $ketQuaBaoCao === 'Đạt') {
+      echo "<script>alert('Không thể chọn kết quả tổng thể là Đạt khi có tiêu chí Không đạt!');</script>";
+    } elseif ($coTieuChiKhongDat == false && $ketQuaBaoCao === 'Không đạt') {
+      echo "<script>alert('Không thể chọn kết quả tổng thể là không đạt khi tất cả tiêu chí đạt!');</script>";
+    } else {
+      // Nếu dữ liệu hợp lệ, xử lý lưu vào database
+      $tieuChiStr = '';
+      foreach ($tieuChiArr as $i => $tc) {
+        $ketQua = isset($ketQuaArr[$i]) ? $ketQuaArr[$i] : '';
+        $tieuChiStr .= trim($tc) . ': ' . $ketQua . '; ';
+      }
+      $tieuChiStr = rtrim($tieuChiStr, ' ');
+
+      $lapBCCL = new LapBCCL();
+
+      // Kiểm tra phiếu này đã được lập báo cáo hay chưa
+      if ($lapBCCL->kiemTraTonTaiBaoCao($maPhieu)) {
+        echo "<script>alert('Báo cáo chất lượng này đã tồn tại! Không thể lập thêm.'); window.location.href='./dspyckd.php';</script>";
+        exit();
+      }
+
+      $insertId = $lapBCCL->insertPhieu($ngayLap, $nguoiLap, $maLo, $maPhieu, $tieuChiStr, $ketQuaBaoCao);
+
+      if ($insertId) {
+        $lapBCCL->updateTrangThaiPhieuYCKD($maPhieu, $ketQuaBaoCao);
         echo "<script>alert('Lập phiếu thành công!'); window.location.href='./dspyckd.php';</script>";
         exit();
-    } else {
+      } else {
         echo "<script>alert('Có lỗi xảy ra khi lập phiếu! Vui lòng kiểm tra kết nối CSDL.');</script>";
+      }
     }
+  }
 }
 ?>
 
@@ -85,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
       <!-- Hidden inputs tiêu chí -->
       <?php foreach ($tieuChiList as $tc): ?>
-          <input type="hidden" name="tieuChi[]" value="<?php echo htmlspecialchars(trim($tc)); ?>">
+        <input type="hidden" name="tieuChi[]" value="<?php echo htmlspecialchars(trim($tc)); ?>">
       <?php endforeach; ?>
 
       <!-- TIÊU CHÍ KIỂM ĐỊNH -->
@@ -101,7 +156,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <option value="">-- Chọn kết quả --</option>
                 <option value="Đạt">Đạt</option>
                 <option value="Không đạt">Không đạt</option>
-                <option value="Cần xem xét">Cần xem xét</option>
               </select>
             </div>
           </div>
@@ -128,7 +182,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <button class="btn btn-success me-2" type="submit">
           <i class="bi bi-check-circle"></i> Lập phiếu
         </button>
-        <a href="./DanhSachPhieuYeuCauKiemDinh.php" class="btn btn-secondary">Hủy</a>
+        <a href="./dspyckd.php" class="btn btn-secondary">Hủy</a>
       </div>
     </form>
   </div>

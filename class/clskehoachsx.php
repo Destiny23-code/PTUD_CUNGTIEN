@@ -121,10 +121,9 @@ class KeHoachModel extends ketnoi {
                     nlsp.maNL, 
                     nl.tenNL,
                     nl.soLuongTon,
-                    nl.dinhMuc,
                     nlsp.soLuongTheoSP,
                     nl.donViTinh
-                FROM ng_sp_dh nlsp
+                FROM dinhmucnguyenlieu nlsp
                 JOIN nguyenlieu nl ON nlsp.maNL = nl.maNL
                 WHERE nlsp.maSP = '$maSP_safe'";
 
@@ -178,7 +177,7 @@ class KeHoachModel extends ketnoi {
         $slTonTaiKho_safe = (float)$slTonTaiKho;
         $slThieuHut_safe = (float)$slThieuHut;
 
-        $sql = "INSERT INTO KHSX_CHITIET_NGUYENLIEU (
+        $sql = "INSERT INTO CHITIET_KHSX (
                     maKHSX, maSP, maNL, soLuong1SP, tongSLCan, slTonTaiKho, slThieuHut, phuongAnXuLy
                 ) VALUES (
                     '$maKHSX_safe',
@@ -302,7 +301,7 @@ class KeHoachModel extends ketnoi {
             // Lấy nguyên liệu cho kế hoạch
             $sqlNL = "SELECT nlct.maKHSX, nlct.maSP, nlct.maNL, nl.tenNL, nl.donViTinh,
                              nlct.soLuong1SP, nlct.tongSLCan, nlct.slTonTaiKho, nlct.slThieuHut, nlct.phuongAnXuLy
-                      FROM KHSX_CHITIET_NGUYENLIEU nlct
+                      FROM CHITIET_KHSX nlct
                       LEFT JOIN NGUYENLIEU nl ON nlct.maNL = nl.maNL
                       WHERE nlct.maKHSX='$maKHSX_safe'";
             $resNL = mysqli_query($link, $sqlNL);

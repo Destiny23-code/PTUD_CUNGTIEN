@@ -281,7 +281,6 @@ if ($maSP_chon != '' && $soLuongSP_chon > 0) {
                             <th>Mã NL</th>
                             <th>Tên NL</th>
                             <th>ĐVT</th>
-                            <th>Định mức</th> 
                             <th>Số lượng/1sp</th>
                             <th>Tổng số lượng theo đơn hàng</th>
                             <th>Số lượng tồn</th>
@@ -300,7 +299,6 @@ if ($maSP_chon != '' && $soLuongSP_chon > 0) {
                                 echo '<td>' . htmlspecialchars($nl['maNL']) . '</td>';
                                 echo '<td>' . htmlspecialchars($nl['tenNL']) . '</td>';
                                 echo '<td>' . htmlspecialchars($nl['donViTinh']) . '</td>';
-                                echo '<td>' . htmlspecialchars($nl['dinhMuc']) . '</td>';
                                 echo '<td>' . htmlspecialchars($nl['soLuongTheoSP']) . '</td>';
                                 echo '<td class="bg-warning-subtle">' . htmlspecialchars($tongSLNL) . '</td>';
                                 echo '<td>' . htmlspecialchars($nl['soLuongTon']) . '</td>';
