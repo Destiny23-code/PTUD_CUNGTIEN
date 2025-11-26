@@ -66,6 +66,29 @@ class LapBCCL extends ketnoi
         }
     }
 
+    // Cập nhật trạng thái của lô sản phẩm sau khi lập báo cáo
+    public function updateTrangThaiLoSanPham($maLo, $trangThai = "Đã kiểm định")
+    {
+        $link = $this->connect();
+
+        $maLo_safe = $link->real_escape_string($maLo);
+        $trangThai_safe = $link->real_escape_string($trangThai);
+
+        $sql = "UPDATE losanpham
+                SET trangThai = N'$trangThai_safe'
+                WHERE maLo = '$maLo_safe'";
+
+        if ($this->xuly($link, $sql)) {
+            $link->close();
+            return true;
+        } else {
+            echo "Lỗi cập nhật trạng thái lô sản phẩm: " . $link->error;
+            $link->close();
+            return false;
+        }
+    }
+
+
     public function kiemTraTonTaiBaoCao($maPhieu)
     {
         $conn = $this->connect();
