@@ -1,8 +1,14 @@
 <?php
 require_once("../../class/clskehoachsx.php");
 $ctrl = new KeHoachModel();
+<<<<<<< HEAD:pages/bgd/dskhsx.php
 $dsKeHoach = $ctrl->getDanhSachKeHoach();
 include_once("../../layout/giaodien/bgd.php");
+=======
+$dsKeHoach = $ctrl->getDanhSachKeHoach(); // giả sử trả về array of assoc arrays
+//include_once("../../layout/giaodien/bgd.php");
+include_once("../../layout/giaodien/pkh.php");
+>>>>>>> 4a1220b069a71d700e9ddad75cf1c95d23891cb0:pages/pkh/dskhsx.php
 ?>
 <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
 

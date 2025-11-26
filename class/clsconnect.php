@@ -4,7 +4,7 @@
             $host = "localhost";
             $user = "root";
             $pass = "";
-            $dbname = "qlsx";
+            $dbname = "quanlysanxuat";
 
             $conn = new mysqli($host, $user, $pass, $dbname);
             $conn->set_charset("utf8");

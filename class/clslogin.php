@@ -5,7 +5,7 @@
         public function mylogin ($user, $pass){
             $pass = md5($pass);
             $link = $this->connect();
-            $sql = "select tk.iduser, username, password, phanquyen, nv.tenNV
+            $sql = "select tk.iduser, username, password, phanquyen, nv.maNV, nv.tenNV, nv.gioiTinh
              from taikhoan tk
             join nhanvien nv on nv.iduser = tk.iduser
             where tk.username = '$user' and tk.password = '$pass' limit 1";
@@ -17,6 +17,7 @@
                 $username = $row['username'];
                 $password = $row['password'];
                 $tenNV = $row['tenNV'];
+                $maNV = $row['maNV'];
                 $phanquyen = $row['phanquyen'];
                 session_start();
                 $_SESSION['login'] = true;
@@ -24,6 +25,8 @@
                 $_SESSION['user'] = $username;
                 $_SESSION['pass'] = $password;
                 $_SESSION['hoTen'] = $tenNV;
+                $_SESSION['maNV'] = $maNV;
+                $_SESSION['gioiTinh'] = $row['gioiTinh'];
                 $_SESSION['phanquyen'] = $phanquyen;
                 
                 return $phanquyen;
