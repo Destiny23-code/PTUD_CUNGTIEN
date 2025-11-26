@@ -1,6 +1,5 @@
 <?php
 // bctk_chatluong.php
-
 // 1. LẤY DỮ LIỆU THỐNG KÊ CHO BIỂU ĐỒ (Logic cũ)
 $tyLeCL = $model->tinhTyLeChatLuong();
 $clTong = 0;
@@ -20,11 +19,9 @@ if (is_array($tyLeCL) && isset($tyLeCL['Dat']) && is_numeric($tyLeCL['Dat'])) {
 $clLabels = array('Đạt', 'Lỗi');
 $clData = array($clTyLeDat, $clTyLeLoi);
 $clDataJson = json_encode($clData);
-
 // 2. LẤY PHIẾU BÁO CÁO MỚI NHẤT (Logic Mới)
 $latestPhieu = $model->getPhieuBaoCaoMoiNhat();
 ?>
-
 <div class="row d-flex align-items-stretch">
     
     <div class="col-md-6"> 
@@ -64,7 +61,6 @@ $latestPhieu = $model->getPhieuBaoCaoMoiNhat();
                     <span class="badge bg-secondary">Mã phiếu: #<?php echo htmlspecialchars($latestPhieu['maPKD']); ?></span>
                 <?php endif; ?>
             </div>
-
             <?php if ($latestPhieu): 
                 // Xử lý hiển thị trạng thái dựa trên cột 'ketQuaBaoCao'
                 $ketQua = $latestPhieu['ketQuaBaoCao']; //
@@ -136,7 +132,7 @@ new Chart(ctxCL, {
         labels: <?php echo json_encode($clLabels); ?>,
         datasets: [{
             data: <?php echo $clDataJson; ?>,
-            backgroundColor: ['#198754', '#dc3545'], // Xanh cho Đạt, Đỏ cho Lỗi
+            backgroundColor: ['#198754', '#dc3545'], 
             borderColor: '#ffffff',
             hoverOffset: 10
         }]

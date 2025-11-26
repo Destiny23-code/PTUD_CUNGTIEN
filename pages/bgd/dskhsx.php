@@ -1,13 +1,10 @@
 <?php
 require_once("../../class/clskehoachsx.php");
 $ctrl = new KeHoachModel();
-$dsKeHoach = $ctrl->getDanhSachKeHoach(); // giả sử trả về array of assoc arrays
+$dsKeHoach = $ctrl->getDanhSachKeHoach();
 include_once("../../layout/giaodien/bgd.php");
 ?>
-
-<!-- Bootstraps & jQuery (Bootstrap 3) -->
 <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
-<!-- (nếu layout đã load bootstrap ở bgd.php thì không cần tải lại) -->
 
 <div class="content">
   <div class="container-fluid p-4 mt-3">
@@ -129,7 +126,6 @@ include_once("../../layout/giaodien/bgd.php");
     border:1px solid #ddd; 
     padding:6px 8px; 
   }
-  /* ✅ Tiêu đề bảng (Mã SP, Tên sản phẩm...) thành chữ đen */
   .detail-table th { 
     background:#f1f1f1; 
     color:#000; 

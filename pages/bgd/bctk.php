@@ -1,9 +1,6 @@
 <?php
-// bctk.php
 require_once("../../class/clskehoachsx.php");
-// File bgd.php chứa header, session, quyền (6), và sidebar
 include_once("../../layout/giaodien/bgd.php"); 
-// Đảm bảo footer.php được include ở cuối file này
 
 $reportType = isset($_GET['type']) ? $_GET['type'] : 'kehoachsanxuat'; 
 $model = new KeHoachModel();
@@ -27,7 +24,6 @@ $model = new KeHoachModel();
 
         <div id="report-container">
             <?php 
-            // SỬA: Thay đổi include() để trỏ đúng vào thư mục views
             if ($reportType == 'kehoachsanxuat') {
                 include('views/bctk_kehoach.php');
             } elseif ($reportType == 'sanluong') {

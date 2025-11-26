@@ -24,16 +24,14 @@ foreach ($sanLuongLoaiSP as $row) {
 $slSpLabelsJson = json_encode($slSpLabels);
 $slSpValuesJson = json_encode($slSpValues);
 ?>
-
-<!-- SỬA: Thêm CSS để ép chiều cao tối thiểu cho hai card biểu đồ -->
 <style>
     .chart-card-min {
-        min-height: 420px; /* Chiều cao tối thiểu cho cả hai card */
+        min-height: 420px;
         display: flex;
         flex-direction: column;
     }
     .chart-container-wrapper {
-        flex-grow: 1; /* Cho phép vùng chứa biểu đồ mở rộng */
+        flex-grow: 1; 
         display: flex;
         align-items: center;
         justify-content: center;
@@ -41,7 +39,7 @@ $slSpValuesJson = json_encode($slSpValues);
     }
     .chart-area {
         width: 100%;
-        max-height: 350px; /* Giới hạn chiều cao tối đa cho biểu đồ */
+        max-height: 350px;
     }
 </style>
 
@@ -80,7 +78,6 @@ $slSpValuesJson = json_encode($slSpValues);
     <div class="col-md-6">
         <div class="card p-3 mb-4 shadow-sm chart-card-min">
             <h6 class="fw-bold">Tỷ lệ phê duyệt</h6>
-            <!-- SỬA: Loại bỏ style width 70% cứng, dùng CSS mới -->
             <div class="chart-container-wrapper">
                 <div class="chart-area" style="max-width: 350px;">
                     <canvas id="khTyLeChart"></canvas>
@@ -90,7 +87,6 @@ $slSpValuesJson = json_encode($slSpValues);
     </div>
     <div class="col-md-6">
         <div class="card p-3 mb-4 shadow-sm chart-card-min">
-            <!-- Đổi tiêu đề -->
             <h6 class="fw-bold">Phân bổ Kế hoạch theo Loại Sản phẩm</h6> 
             <div class="chart-container-wrapper">
                 <div class="chart-area">
@@ -102,9 +98,7 @@ $slSpValuesJson = json_encode($slSpValues);
 </div>
 
 <script>
-// SỬA: Dùng var thay cho const (PHP 5.2.6 compatible)
 var currentKHSX = null; 
-
 // Biểu đồ Donut Tỷ lệ phê duyệt
 var ctxTyLe = document.getElementById('khTyLeChart');
 new Chart(ctxTyLe, {
@@ -123,10 +117,9 @@ new Chart(ctxTyLe, {
             }
         },
         responsive: true,
-        maintainAspectRatio: true // Biểu đồ Donut luôn giữ tỉ lệ 1:1
+        maintainAspectRatio: true 
     }
 });
-
 // Biểu đồ cột Sản lượng theo Loại Sản phẩm (SỬA maintainAspectRatio thành TRUE)
 var ctxXuong = document.getElementById('xuongSanLuongChart');
 new Chart(ctxXuong, {
@@ -146,7 +139,7 @@ new Chart(ctxXuong, {
             }
         },
         responsive: true,
-        maintainAspectRatio: true // Ép biểu đồ cột cũng giữ tỉ lệ 1:1 để khớp với Donut
+        maintainAspectRatio: true 
     }
 });
 </script>

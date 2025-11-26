@@ -1,44 +1,33 @@
 <?php
 // bctk_sanluong.php
-
-// --- LOGIC XỬ LÝ PHP ---
-
 // 1. Xử lý năm được chọn từ bộ lọc
-// Mặc định là năm hiện tại
 $selectedYear = date('Y'); 
 if (isset($_GET['year']) && is_numeric($_GET['year'])) {
     $selectedYear = (int)$_GET['year'];
 }
-
 // 2. Lấy dữ liệu với năm đã chọn
 $sanLuongThangData = $model->getSanLuongTheoThang($selectedYear);
 $sanLuongLoaiSPData = $model->thongKeSanLuongTheoLoaiSP(); 
-
 // 3. Chuẩn bị dữ liệu cho Chart.js - Sản lượng theo tháng (Biểu đồ Line)
 $slThangLabels = array();
 $slThangCounts = array();
 // Khởi tạo mảng 12 tháng với giá trị 0
 $allMonths = array_fill(1, 12, 0); 
-
 foreach ($sanLuongThangData as $row) {
     // Gán sản lượng vào tháng tương ứng
     $allMonths[(int)$row['Thang']] = (int)$row['TongSanLuong'];
 }
-
 foreach ($allMonths as $month => $count) {
     $slThangLabels[] = 'T' . $month;
     $slThangCounts[] = $count;
 }
 $slThangCountsJson = json_encode($slThangCounts); 
-
 // 4. Tạo danh sách các năm để hiển thị bộ lọc (ví dụ: từ năm hiện tại lùi 5 năm)
 $availableYears = array();
 $currentYear = date('Y');
 for ($i = 0; $i < 5; $i++) {
     $availableYears[] = $currentYear - $i;
 }
-
-
 // 5. Chuẩn bị dữ liệu cho Chart.js - Sản lượng theo Loại Sản phẩm (Biểu đồ Bar)
 $slSpLabels = array();
 $slSpValues = array();
@@ -50,9 +39,7 @@ $slSpLabelsJson = json_encode($slSpLabels);
 $slSpValuesJson = json_encode($slSpValues);
 
 ?>
-
 <div class="row d-flex align-items-stretch">
-    
     <div class="col-md-6">
         <div class="card p-3 mb-4 shadow-sm h-100">
             <div class="d-flex justify-content-between align-items-center mb-2">
