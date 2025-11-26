@@ -51,7 +51,8 @@ SELECT
     l.trangthai
 FROM 
     losanpham AS l
-{$where}
+$where
+    l.trangthai != 'Đã kiểm định'
 ORDER BY 
     l.ngaySX DESC
 ";

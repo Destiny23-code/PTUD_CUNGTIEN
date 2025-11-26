@@ -97,6 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
       if ($insertId) {
         $lapBCCL->updateTrangThaiPhieuYCKD($maPhieu, $ketQuaBaoCao);
+        $lapBCCL->updateTrangThaiLoSanPham($maLo);
         echo "<script>alert('Lập phiếu thành công!'); window.location.href='./dspyckd.php';</script>";
         exit();
       } else {
