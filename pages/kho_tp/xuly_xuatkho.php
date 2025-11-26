@@ -21,93 +21,108 @@ $conn->autocommit(false);
 
 try {
     $ngaygio = date('d/m/Y H:i');
-    $nguoi = $_SESSION['hoTen'];
+    $nguoi   = $_SESSION['hoTen'];
+    $maNV    = $_SESSION['maNV'] ?? 1;
 
-    $conn->query("INSERT INTO phieuxuatkho (nguoiLap, ngayLap, ngayXuat, trangThai) VALUES (1, CURDATE(), CURDATE(), 'Đã xuất')");
+    // Tạo phiếu xuất kho
+    $conn->query("INSERT INTO phieuxuatkho (nguoiLap, ngayLap, ngayXuat, trangThai) 
+                  VALUES ($maNV, CURDATE(), CURDATE(), 'Đã xuất')");
     $maPXK = str_pad($conn->insert_id, 4, '0', STR_PAD_LEFT);
 
     $chiTiet = [];
-    $tongSL = 0;
+    $tongSL  = 0;
 
     foreach ($items as $it) {
-        $maDH = $it['maDH'];
-        $maSP = $it['maSP'];
-        $sl   = $it['soLuong'];
+        $maDH = (int)$it['maDH'];
+        $sl   = (int)$it['soLuong'];
 
-        // ĐÃ XÓA phần lấy lô sản phẩm ở đây
-        $q = $conn->query("SELECT kh.tenKH, sp.tenSP, sp.loaiSP, dh.ngayGiaoDuKien
-                           FROM chitiet_donhang ct
-                           JOIN khachhang kh ON ct.maKH=kh.maKH 
-                           JOIN sanpham sp ON ct.maSP=sp.maSP
-                           JOIN donhang dh ON ct.maDH=dh.maDH
-                           WHERE ct.maDH=$maDH AND ct.maSP=$maSP
-                           LIMIT 1");
+        // Lấy đầy đủ thông tin cần hiển thị (mã SP + tên SP + tên KH)
+        $q = $conn->query("SELECT 
+                kh.tenKH,
+                sp.maSP,
+                sp.tenSP,
+                dh.ngayGiaoDuKien
+            FROM chitiet_donhang ct
+            JOIN khachhang kh ON ct.maKH = kh.maKH
+            JOIN sanpham sp   ON ct.maSP = sp.maSP
+            JOIN donhang dh   ON ct.maDH = dh.maDH
+            WHERE ct.maDH = $maDH
+            LIMIT 1");
         $r = $q->fetch_assoc();
 
-        $conn->query("INSERT INTO chitiet_phieuxuatkho 
-                     (maPXK, maDH, maSP, soLuongXuat, tenKH, tenSP) 
-                     VALUES ('$maPXK', $maDH, $maSP, $sl, 
-                             '{$conn->real_escape_string($r['tenKH'])}', 
-                             '{$conn->real_escape_string($r['tenSP'])}')");
+        // Ghi chi tiết phiếu xuất (chỉ lưu những gì cần thiết)
+        $conn->query("INSERT INTO chitiet_phieuxuatkho (maPXK, maDH, soLuongXuat) 
+                      VALUES ('$maPXK', $maDH, $sl)");
 
-        $conn->query("UPDATE sanpham SET soLuongTon = soLuongTon - $sl WHERE maSP = $maSP");
+        // Trừ tồn kho
+        $conn->query("UPDATE sanpham sp 
+                      JOIN chitiet_donhang ct ON sp.maSP = ct.maSP 
+                      SET sp.soLuongTon = sp.soLuongTon - $sl 
+                      WHERE ct.maDH = $maDH");
 
         $chiTiet[] = [
-            'maDH' => $maDH,
-            'tenKH' => $r['tenKH'],
-            // ĐÃ XÓA 'maLo' ở đây
-            'tenSP' => $r['tenSP'],
-            'loaiSP' => $r['loaiSP'] ?: 'Nước suối',
-            'soLuong' => $sl,
+            'maDH'     => $maDH,
+            'tenKH'    => $r['tenKH'],
+            'maSP'     => $r['maSP'],
+            'tenSP'    => $r['tenSP'],
+            'soLuong'  => $sl,
             'ngayGiao' => $r['ngayGiaoDuKien'] ? date('d/m/Y', strtotime($r['ngayGiaoDuKien'])) : ''
         ];
         $tongSL += $sl;
     }
 
+    // Đánh dấu đơn hàng hoàn thành
     foreach ($items as $it) {
-        $conn->query("UPDATE donhang SET trangThai='Hoàn thành' WHERE maDH={$it['maDH']}");
+        $conn->query("UPDATE donhang SET trangThai = 'Hoàn thành' WHERE maDH = {$it['maDH']}");
     }
 
     $conn->commit();
 
-    $html = "<p class='fw-bold fs-4 text-success'>PHIẾU XUẤT KHO PXK$maPXK</p>";
-    $html .= "<p><strong>Ngày xuất:</strong> $ngaygio &nbsp;&nbsp; <strong>Người xuất kho:</strong> $nguoi</p>";
-    $html .= "<table class='table table-bordered mt-3'>
-                <thead class='table-secondary'>
+    // === PHIẾU XUẤT KHO ĐẸP – THEO ĐÚNG YÊU CẦU MỚI ===
+    $html = "<div class='text-center mb-4'>
+                <h2 class='text-success fw-bold'>PHIẾU XUẤT KHO PXK$maPXK</h2>
+                <p class='fs-5'>Ngày xuất: <strong>$ngaygio</strong> | Người xuất kho: <strong>$nguoi</strong></p>
+             </div>";
+
+    $html .= "<table class='table table-bordered table-hover'>
+                <thead class='table-success text-center'>
                     <tr>
-                        <th>Mã đơn hàng</th>
-                        <th>Khách hàng</th>
-                        <th>Tên sản phẩm</th>   <!-- ĐÃ XÓA CỘT LÔ -->
-                        <th>Loại</th>
+                        <th>ĐH</th>
+                        <th>Tên khách hàng</th>
+                        <th>Mã sản phẩm</th>
+                        <th>Tên sản phẩm</th>
                         <th>Số lượng</th>
-                        <th>Ngày giao hàng</th>
+                        <th>Ngày giao</th>
                     </tr>
                 </thead>
                 <tbody>";
 
     foreach ($chiTiet as $it) {
-        $html .= "<tr>
-                    <td>#" . str_pad($it['maDH'], 4, '0', STR_PAD_LEFT) . "</td>
+        $html .= "<tr class='text-center align-middle'>
+                    <td class='fw-bold'>#" . str_pad($it['maDH'], 4, '0', STR_PAD_LEFT) . "</td>
                     <td>{$it['tenKH']}</td>
-                    <td>{$it['tenSP']}</td>   <!-- ĐÃ XÓA CỘT LÔ -->
-                    <td>{$it['loaiSP']}</td>
-                    <td class='text-end fw-bold'>" . number_format($it['soLuong']) . "</td>
-                    <td class='text-center'>{$it['ngayGiao']}</td>
+                    <td>{$it['maSP']}</td>
+                    <td>{$it['tenSP']}</td>
+                    <td class='fw-bold text-primary fs-5'>" . number_format($it['soLuong']) . "</td>
+                    <td>{$it['ngayGiao']}</td>
                   </tr>";
     }
 
-    $html .= "</tbody></table>";
-    $html .= "<div class='text-end fw-bold fs-5 text-success mt-3'>
-                Tổng cộng: " . number_format($tongSL) . " sản phẩm
-              </div>";
-    $html .= "<div class='alert alert-success mt-3 text-center'>
-                Các đơn hàng đã được chuyển sang trạng thái <strong>Hoàn thành</strong>
+    $html .= "<tr class='table-info fw-bold fs-4'>
+                <td colspan='4' class='text-end pe-4'>TỔNG CỘNG:</td>
+                <td class='text-center text-primary'>" . number_format($tongSL) . " sp</td>
+                <td></td>
+              </tr>
+              </tbody>
+              </table>";
+
+    $html .= "<div class='alert alert-success text-center mt-4 fw-bold'>
+                Xuất kho thành công! Các đơn hàng đã được chuyển trạng thái <strong>Hoàn thành</strong>
               </div>";
 
     echo json_encode([
         'status' => 'success',
-        'maPXK' => $maPXK,
-        'html' => $html
+        'html'   => $html
     ]);
 
 } catch(Exception $e) {
