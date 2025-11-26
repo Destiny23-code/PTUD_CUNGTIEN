@@ -17,9 +17,24 @@ if (!$p->confirmlogin($session_id, $session_user, $session_pass, $session_phanqu
     exit();
 }
 
+$phanCong = new PhanCongNhanCong();
+
+// Lấy thông tin nhân viên đang đăng nhập
+$maNVDangNhap = $session_id;
+$maDCCuaToi = $phanCong->layDayChuyenCuaNhanVien($maNVDangNhap);
+$thongTinDC = $maDCCuaToi ? $phanCong->layThongTinDayChuyen($maDCCuaToi) : null;
+
+// XỬ LÝ AJAX - Lấy nhân viên theo dây chuyền
+if (isset($_GET['ajax']) && $_GET['ajax'] == 'getNhanVien' && isset($_GET['maDC'])) {
+    header('Content-Type: application/json');
+    $maDC = intval($_GET['maDC']);
+    $dsNV = $phanCong->layDanhSachNhanVien($maDC);
+    echo json_encode($dsNV);
+    exit();
+}
+
 include_once('../../layout/giaodien/qdx.php');
 
-$phanCong = new PhanCongNhanCong();
 $msg = "";
 $msgType = "danger";
 
@@ -63,16 +78,18 @@ if (isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['id']))
 $ngayLoc = isset($_GET['ngay']) ? $_GET['ngay'] : date('Y-m-d');
 $maDCLoc = isset($_GET['maDC']) ? intval($_GET['maDC']) : 0;
 
+// Lấy TẤT CẢ dây chuyền (không giới hạn theo xưởng)
 $dsDayChuyen = $phanCong->layDanhSachDayChuyen();
-$dsNhanVien = $phanCong->layDanhSachNhanVien();
-$dsPhanCong = $phanCong->layDanhSachPhanCong($ngayLoc, $maDCLoc);
+$dsPhanCong = $phanCong->layDanhSachPhanCong($ngayLoc, $maDCLoc, null);
 ?>
 
 <div class="content">
     <div class="container-fluid">
-        <h3 class="mb-4 text-primary">
-            <i class="bi bi-people me-2"></i>PHÂN CÔNG NHÂN CÔNG
-        </h3>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h3 class="text-primary mb-0">
+                <i class="bi bi-people me-2"></i>PHÂN CÔNG NHÂN CÔNG
+            </h3>
+        </div>
 
         <?php if (!empty($msg)): ?>
             <div class="alert alert-<?php echo $msgType; ?> alert-dismissible fade show">
@@ -92,7 +109,7 @@ $dsPhanCong = $phanCong->layDanhSachPhanCong($ngayLoc, $maDCLoc);
                     <div class="row g-3">
                         <div class="col-lg-3 col-md-6">
                             <label class="form-label fw-bold">Dây Chuyền <span class="text-danger">*</span></label>
-                            <select name="maDC" class="form-select" required>
+                            <select name="maDC" id="selectDayChuyen" class="form-select" required>
                                 <option value="">-- Chọn Dây Chuyền --</option>
                                 <?php foreach ($dsDayChuyen as $dc): ?>
                                     <option value="<?php echo $dc['maDC']; ?>">
@@ -100,17 +117,17 @@ $dsPhanCong = $phanCong->layDanhSachPhanCong($ngayLoc, $maDCLoc);
                                     </option>
                                 <?php endforeach; ?>
                             </select>
+                            <small class="text-muted">Hiển thị tất cả dây chuyền</small>
                         </div>
                         <div class="col-lg-3 col-md-6">
                             <label class="form-label fw-bold">Nhân Viên <span class="text-danger">*</span></label>
-                            <select name="maNV" class="form-select" required>
-                                <option value="">-- Chọn Nhân Viên --</option>
-                                <?php foreach ($dsNhanVien as $nv): ?>
-                                    <option value="<?php echo $nv['maNV']; ?>">
-                                        <?php echo htmlspecialchars($nv['tenNV'] . ' - ' . $nv['tenLoai']); ?>
-                                    </option>
-                                <?php endforeach; ?>
+                            <select name="maNV" id="selectNhanVien" class="form-select" required disabled>
+                                <option value="">-- Chọn dây chuyền trước --</option>
                             </select>
+                            <small class="text-muted" id="loadingNV" style="display:none;">
+                                <i class="bi bi-arrow-repeat"></i> Đang tải...
+                            </small>
+                            <small class="text-muted" id="hintNV">Chỉ hiển thị nhân viên trong dây chuyền đã chọn</small>
                         </div>
                         <div class="col-lg-2 col-md-6">
                             <label class="form-label fw-bold">Ngày <span class="text-danger">*</span></label>
@@ -143,7 +160,7 @@ $dsPhanCong = $phanCong->layDanhSachPhanCong($ngayLoc, $maDCLoc);
                 <form method="GET" action="">
                     <div class="row g-3">
                         <div class="col-lg-5 col-md-6">
-                            <label class="form-label fw-bold">Ngày</label>
+                            <label class="form-label fw-bold">Lọc Theo Ngày</label>
                             <input type="date" name="ngay" class="form-control" value="<?php echo htmlspecialchars($ngayLoc); ?>">
                         </div>
                         <div class="col-lg-5 col-md-6">
@@ -219,5 +236,56 @@ $dsPhanCong = $phanCong->layDanhSachPhanCong($ngayLoc, $maDCLoc);
         </div>
     </div>
 </div>
+
+<script>
+// AJAX - Load nhân viên khi chọn dây chuyền
+document.getElementById('selectDayChuyen').addEventListener('change', function() {
+    const maDC = this.value;
+    const selectNV = document.getElementById('selectNhanVien');
+    const loadingNV = document.getElementById('loadingNV');
+    const hintNV = document.getElementById('hintNV');
+    
+    if (!maDC) {
+        selectNV.disabled = true;
+        selectNV.innerHTML = '<option value="">-- Chọn dây chuyền trước --</option>';
+        return;
+    }
+    
+    // Hiển thị loading
+    loadingNV.style.display = 'inline';
+    hintNV.style.display = 'none';
+    selectNV.disabled = true;
+    selectNV.innerHTML = '<option value="">Đang tải...</option>';
+    
+    // Gọi AJAX
+    fetch('?ajax=getNhanVien&maDC=' + maDC)
+        .then(response => response.json())
+        .then(data => {
+            loadingNV.style.display = 'none';
+            hintNV.style.display = 'inline';
+            
+            if (data && data.length > 0) {
+                selectNV.innerHTML = '<option value="">-- Chọn Nhân Viên --</option>';
+                data.forEach(nv => {
+                    const option = document.createElement('option');
+                    option.value = nv.maNV;
+                    option.textContent = nv.tenNV + ' - ' + nv.tenLoai;
+                    selectNV.appendChild(option);
+                });
+                selectNV.disabled = false;
+            } else {
+                selectNV.innerHTML = '<option value="">Không có nhân viên trong dây chuyền này</option>';
+                selectNV.disabled = true;
+            }
+        })
+        .catch(error => {
+            console.error('Lỗi:', error);
+            loadingNV.style.display = 'none';
+            hintNV.style.display = 'inline';
+            selectNV.innerHTML = '<option value="">Lỗi khi tải dữ liệu</option>';
+            selectNV.disabled = true;
+        });
+});
+</script>
 
 <?php include_once("../../layout/footer.php"); ?>
