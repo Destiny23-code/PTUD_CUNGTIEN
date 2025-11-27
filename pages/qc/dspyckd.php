@@ -49,15 +49,16 @@ SELECT
     p.maPhieu, 
     p.ngayLap, 
     p.nguoiLap, 
-    p.tieuChi AS tieuChi, 
+    t.tieuChi, 
     p.maLo, 
     p.trangThai,
     l.ngaySX, 
     l.soLuong AS SoLuong,
     l.maSP
-FROM 
-    losanpham AS l
+FROM losanpham AS l
     INNER JOIN phieuyeucaukiemdinh AS p ON l.maLo = p.maLo
+    INNER JOIN sanpham AS s ON l.maSP = s.maSP
+    INNER JOIN tieuchikiemdinh AS t ON s.maLoai = t.maLoai
 {$where}
 ORDER BY 
     p.ngayLap DESC
