@@ -37,8 +37,13 @@ class CanhBao
     }
 
     // Trả về badge cảnh báo
-    public function getWarningBadge($ngayHetHan)
+    public function getWarningBadge($ngayHetHan, $trangThai)
     {
+        // Chỉ hiển thị cảnh báo nếu trạng thái là "Đã kiểm định"
+        if (trim($trangThai) !== "Đã kiểm định") {
+            return "";
+        }
+
         $days = $this->soNgayConLai($ngayHetHan);
 
         if ($days === null) return "";

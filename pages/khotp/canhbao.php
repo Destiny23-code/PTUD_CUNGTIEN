@@ -116,15 +116,15 @@ $stt = 1;
                     if (is_array($data_list) && count($data_list) > 0) {
                         foreach ($data_list as $row) {
                             $rowClass = $canhBao->getRowClass($row['ngayHetHan']);
-                            $badge = $canhBao->getWarningBadge($row['ngayHetHan']);
+                            $badge = $canhBao->getWarningBadge($row['ngayHetHan'], $row['trangthai']);
                             echo "<tr class='$rowClass'>";
                             echo "<td>" . $stt++ . "</td>";
                             echo "<td>" . htmlspecialchars($row['maLo']) . "</td>";
                             // echo "<td>" . htmlspecialchars($row['maSP']) . "</td>";
                             echo "<td>" . htmlspecialchars($row['ngaySX']) . "</td>";
-                            echo "<td>" . htmlspecialchars($row['ngayHetHan']) . " $badge</td>";
+                            echo "<td>" . htmlspecialchars($row['ngayHetHan']) . "</td>";
                             echo "<td>" . htmlspecialchars($row['SoLuong']) . "</td>";
-                            echo "<td>" . htmlspecialchars($row['trangthai']) . "</td>";
+                            echo "<td>" . htmlspecialchars($row['trangthai']) . " $badge</td>";
                             echo "</tr>";
                         }
                     } else {
