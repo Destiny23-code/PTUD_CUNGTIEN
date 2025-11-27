@@ -54,8 +54,29 @@ class PhanCongNhanCong extends ketnoi {
         }
     }
     
-    // Lấy danh sách TẤT CẢ dây chuyền
-    public function layDanhSachDayChuyen($maDC = null) {
+    // Lấy danh sách xưởng (CHỈ xưởng của quản đốc hoặc tất cả)
+    public function layDanhSachXuong($maXuongQuanDoc = null) {
+        try {
+            $sql = "SELECT maXuong, tenXuong, diaChi, sDT
+                    FROM xuong
+                    WHERE 1=1";
+            
+            // Nếu là quản đốc, chỉ lấy xưởng của họ
+            if ($maXuongQuanDoc !== null) {
+                $sql .= " AND maXuong = " . intval($maXuongQuanDoc);
+            }
+            
+            $sql .= " ORDER BY maXuong";
+            $result = $this->laydulieu($this->conn, $sql);
+            return $result ? $result : array();
+        } catch (Exception $e) {
+            error_log("Lỗi layDanhSachXuong: " . $e->getMessage());
+            return array();
+        }
+    }
+    
+    // Lấy danh sách dây chuyền theo xưởng
+    public function layDanhSachDayChuyen($maDC = null, $maXuong = null) {
         try {
             $sql = "SELECT dc.maDC, dc.tenDC, dc.maXuong, x.tenXuong
                     FROM daychuyen dc
@@ -64,6 +85,11 @@ class PhanCongNhanCong extends ketnoi {
             
             if ($maDC !== null) {
                 $sql .= " AND dc.maDC = " . intval($maDC);
+            }
+            
+            // Lọc theo xưởng nếu có
+            if ($maXuong !== null) {
+                $sql .= " AND dc.maXuong = " . intval($maXuong);
             }
             
             $sql .= " ORDER BY dc.maDC";
@@ -76,20 +102,25 @@ class PhanCongNhanCong extends ketnoi {
     }
     
     // Lấy danh sách nhân viên theo dây chuyền (CHỈ NHÂN VIÊN TRONG DÂY CHUYỀN ĐÓ)
-    public function layDanhSachNhanVien($maDC = null) {
+    public function layDanhSachNhanVien($maDC = null, $maXuong = null) {
         try {
-            $sql = "SELECT nv.maNV, nv.tenNV, nv.sDT, nv.diaChi, nv.maDC, ln.tenLoai, dc.tenDC
+            $sql = "SELECT nv.maNV, nv.tenNV, nv.sDT, nv.diaChi, nv.maDC, ln.tenLoai, dc.tenDC, dc.maXuong
                     FROM nhanvien nv
-                    LEFT JOIN loainhanvien ln ON nv.maLoai = ln.maLoai
-                    LEFT JOIN daychuyen dc ON nv.maDC = dc.maDC
-                    WHERE 1=1";  // Hiển thị tất cả nhân viên kể cả xưởng trưởng
+                    INNER JOIN loainhanvien ln ON nv.maLoai = ln.maLoai
+                    INNER JOIN daychuyen dc ON nv.maDC = dc.maDC
+                    WHERE 1=1";
             
             // CHỈ LẤY NHÂN VIÊN TRONG DÂY CHUYỀN CỤ THỂ
             if ($maDC !== null) {
                 $sql .= " AND nv.maDC = " . intval($maDC);
             }
             
-            $sql .= " ORDER BY nv.tenNV";
+            // Lọc theo xưởng nếu cần (để quản đốc chỉ thấy nhân viên trong xưởng mình)
+            if ($maXuong !== null) {
+                $sql .= " AND dc.maXuong = " . intval($maXuong);
+            }
+            
+            $sql .= " ORDER BY dc.tenDC, nv.tenNV";
             $result = $this->laydulieu($this->conn, $sql);
             return $result ? $result : array();
         } catch (Exception $e) {
@@ -139,19 +170,37 @@ class PhanCongNhanCong extends ketnoi {
     }
     
     // Thêm phân công mới
-    public function themPhanCong($maDC, $maNV, $ngayLamViec, $gioBatDau, $gioKetThuc, $ghiChu = '') {
+    public function themPhanCong($maDC, $maNV, $ngayLamViec, $gioBatDau, $gioKetThuc, $ghiChu = '', $maXuongQuanDoc = null) {
         try {
-            // Kiểm tra nhân viên có thuộc dây chuyền này không
-            $sqlCheckDC = "SELECT maDC FROM nhanvien WHERE maNV = " . intval($maNV);
-            $resultDC = $this->laydulieu($this->conn, $sqlCheckDC);
+            // Kiểm tra dây chuyền có thuộc xưởng của quản đốc không
+            if ($maXuongQuanDoc !== null) {
+                $sqlCheckXuong = "SELECT maXuong FROM daychuyen WHERE maDC = " . intval($maDC);
+                $resultXuong = $this->laydulieu($this->conn, $sqlCheckXuong);
+                
+                if (!$resultXuong || $resultXuong[0]['maXuong'] != $maXuongQuanDoc) {
+                    return "Bạn chỉ có thể phân công cho dây chuyền trong xưởng của mình!";
+                }
+            }
             
-            if ($resultDC && isset($resultDC[0]['maDC'])) {
-                $maDCCuaNV = $resultDC[0]['maDC'];
-                if ($maDCCuaNV != $maDC) {
-                    return "Nhân viên này không thuộc dây chuyền đang chọn!";
+            // Kiểm tra nhân viên có thuộc xưởng này không (không cần cùng dây chuyền)
+            $sqlCheckXuongNV = "SELECT dc.maXuong 
+                                FROM nhanvien nv
+                                INNER JOIN daychuyen dc ON nv.maDC = dc.maDC
+                                WHERE nv.maNV = " . intval($maNV);
+            $resultXuongNV = $this->laydulieu($this->conn, $sqlCheckXuongNV);
+            
+            $sqlCheckXuongDC = "SELECT maXuong FROM daychuyen WHERE maDC = " . intval($maDC);
+            $resultXuongDC = $this->laydulieu($this->conn, $sqlCheckXuongDC);
+            
+            if ($resultXuongNV && $resultXuongDC) {
+                $maXuongNV = $resultXuongNV[0]['maXuong'];
+                $maXuongDC = $resultXuongDC[0]['maXuong'];
+                
+                if ($maXuongNV != $maXuongDC) {
+                    return "Nhân viên này không thuộc xưởng của dây chuyền đang chọn!";
                 }
             } else {
-                return "Không tìm thấy thông tin nhân viên!";
+                return "Không tìm thấy thông tin nhân viên hoặc dây chuyền!";
             }
             
             // Kiểm tra trùng lịch

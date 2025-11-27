@@ -20,15 +20,19 @@ if (!$p->confirmlogin($session_id, $session_user, $session_pass, $session_phanqu
 $phanCong = new PhanCongNhanCong();
 
 // Lấy thông tin nhân viên đang đăng nhập
-$maNVDangNhap = $session_id;
+$maNVDangNhap = $_SESSION['maNV']; // Lấy mã nhân viên từ session
 $maDCCuaToi = $phanCong->layDayChuyenCuaNhanVien($maNVDangNhap);
+$maXuongCuaToi = $phanCong->layXuongCuaXuongTruong($maNVDangNhap);
 $thongTinDC = $maDCCuaToi ? $phanCong->layThongTinDayChuyen($maDCCuaToi) : null;
 
-// XỬ LÝ AJAX - Lấy nhân viên theo dây chuyền
+// XỬ LÝ AJAX - Lấy nhân viên theo dây chuyền cụ thể
 if (isset($_GET['ajax']) && $_GET['ajax'] == 'getNhanVien' && isset($_GET['maDC'])) {
     header('Content-Type: application/json');
     $maDC = intval($_GET['maDC']);
-    $dsNV = $phanCong->layDanhSachNhanVien($maDC);
+    
+    // Lấy CHỈ nhân viên thuộc dây chuyền này (maDC)
+    $dsNV = $phanCong->layDanhSachNhanVien($maDC, null);
+    
     echo json_encode($dsNV);
     exit();
 }
@@ -48,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['btnPhanCong'])) {
     $ghiChu = isset($_POST['ghiChu']) ? trim($_POST['ghiChu']) : '';
     
     if ($maDC > 0 && $maNV > 0 && $ngayLamViec && $gioBatDau && $gioKetThuc) {
-        $result = $phanCong->themPhanCong($maDC, $maNV, $ngayLamViec, $gioBatDau, $gioKetThuc, $ghiChu);
+        $result = $phanCong->themPhanCong($maDC, $maNV, $ngayLamViec, $gioBatDau, $gioKetThuc, $ghiChu, $maXuongCuaToi);
         if ($result === true) {
             $msg = "Phân công nhân công thành công!";
             $msgType = "success";
@@ -77,10 +81,15 @@ if (isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['id']))
 // Lấy dữ liệu
 $ngayLoc = isset($_GET['ngay']) ? $_GET['ngay'] : date('Y-m-d');
 $maDCLoc = isset($_GET['maDC']) ? intval($_GET['maDC']) : 0;
+$maXuongLoc = isset($_GET['maXuong']) ? intval($_GET['maXuong']) : 0;
 
-// Lấy TẤT CẢ dây chuyền (không giới hạn theo xưởng)
-$dsDayChuyen = $phanCong->layDanhSachDayChuyen();
-$dsPhanCong = $phanCong->layDanhSachPhanCong($ngayLoc, $maDCLoc, null);
+// Lấy danh sách xưởng (CHỈ xưởng của quản đốc)
+$dsXuong = $phanCong->layDanhSachXuong($maXuongCuaToi);
+
+// Lấy CHỈ dây chuyền thuộc xưởng của quản đốc
+$dsDayChuyen = $phanCong->layDanhSachDayChuyen(null, $maXuongCuaToi);
+// Lấy phân công CHỈ trong xưởng của quản đốc
+$dsPhanCong = $phanCong->layDanhSachPhanCong($ngayLoc, $maDCLoc, $maXuongCuaToi);
 ?>
 
 <div class="content">
@@ -89,6 +98,17 @@ $dsPhanCong = $phanCong->layDanhSachPhanCong($ngayLoc, $maDCLoc, null);
             <h3 class="text-primary mb-0">
                 <i class="bi bi-people me-2"></i>PHÂN CÔNG NHÂN CÔNG
             </h3>
+            <?php if ($thongTinDC): ?>
+                <div class="alert alert-info mb-0 py-2">
+                    <i class="bi bi-building me-1"></i>
+                    <strong>Xưởng của bạn:</strong> <?php echo htmlspecialchars($thongTinDC['tenXuong']); ?>
+                    <br>
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Quản lý <?php echo count($dsDayChuyen); ?> dây chuyền trong xưởng này
+                    </small>
+                </div>
+            <?php endif; ?>
         </div>
 
         <?php if (!empty($msg)): ?>
@@ -107,8 +127,10 @@ $dsPhanCong = $phanCong->layDanhSachPhanCong($ngayLoc, $maDCLoc, null);
             <div class="card-body">
                 <form method="POST" action="">
                     <div class="row g-3">
-                        <div class="col-lg-3 col-md-6">
-                            <label class="form-label fw-bold">Dây Chuyền <span class="text-danger">*</span></label>
+                        <div class="col-lg-4 col-md-6">
+                            <label class="form-label fw-bold">
+                                <i class="bi bi-gear me-1"></i>Dây Chuyền <span class="text-danger">*</span>
+                            </label>
                             <select name="maDC" id="selectDayChuyen" class="form-select" required>
                                 <option value="">-- Chọn Dây Chuyền --</option>
                                 <?php foreach ($dsDayChuyen as $dc): ?>
@@ -117,35 +139,48 @@ $dsPhanCong = $phanCong->layDanhSachPhanCong($ngayLoc, $maDCLoc, null);
                                     </option>
                                 <?php endforeach; ?>
                             </select>
-                            <small class="text-muted">Hiển thị tất cả dây chuyền</small>
+                            <small class="text-muted">Bước 1: Chọn dây chuyền trong xưởng của bạn</small>
                         </div>
-                        <div class="col-lg-3 col-md-6">
-                            <label class="form-label fw-bold">Nhân Viên <span class="text-danger">*</span></label>
+                        <div class="col-lg-4 col-md-6">
+                            <label class="form-label fw-bold">
+                                <i class="bi bi-person me-1"></i>Nhân Viên <span class="text-danger">*</span>
+                            </label>
                             <select name="maNV" id="selectNhanVien" class="form-select" required disabled>
                                 <option value="">-- Chọn dây chuyền trước --</option>
                             </select>
                             <small class="text-muted" id="loadingNV" style="display:none;">
                                 <i class="bi bi-arrow-repeat"></i> Đang tải...
                             </small>
-                            <small class="text-muted" id="hintNV">Chỉ hiển thị nhân viên trong dây chuyền đã chọn</small>
+                            <small class="text-success" id="hintNV">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Bước 2: Chọn nhân viên (tất cả nhân viên trong xưởng)
+                            </small>
                         </div>
-                        <div class="col-lg-2 col-md-6">
-                            <label class="form-label fw-bold">Ngày <span class="text-danger">*</span></label>
+                        <div class="col-lg-4 col-md-6">
+                            <label class="form-label fw-bold">
+                                <i class="bi bi-calendar me-1"></i>Ngày Làm Việc <span class="text-danger">*</span>
+                            </label>
                             <input type="date" name="ngayLamViec" class="form-control" value="<?php echo date('Y-m-d'); ?>" required>
                         </div>
-                        <div class="col-lg-2 col-md-6">
-                            <label class="form-label fw-bold">Giờ BĐ <span class="text-danger">*</span></label>
+                    </div>
+                    <div class="row g-3 mt-2">
+                        <div class="col-lg-3 col-md-6">
+                            <label class="form-label fw-bold">
+                                <i class="bi bi-clock me-1"></i>Giờ Bắt Đầu <span class="text-danger">*</span>
+                            </label>
                             <input type="time" name="gioBatDau" class="form-control" value="06:00" required>
                         </div>
-                        <div class="col-lg-2 col-md-6">
-                            <label class="form-label fw-bold">Giờ KT <span class="text-danger">*</span></label>
+                        <div class="col-lg-3 col-md-6">
+                            <label class="form-label fw-bold">
+                                <i class="bi bi-clock-fill me-1"></i>Giờ Kết Thúc <span class="text-danger">*</span>
+                            </label>
                             <input type="time" name="gioKetThuc" class="form-control" value="18:00" required>
                         </div>
-                    </div>
-                    <div class="text-end mt-3">
-                        <button type="submit" name="btnPhanCong" class="btn btn-primary btn-lg">
-                            <i class="bi bi-check-circle me-2"></i>Phân Công
-                        </button>
+                        <div class="col-lg-6 col-md-12 d-flex align-items-end">
+                            <button type="submit" name="btnPhanCong" class="btn btn-primary btn-lg w-100">
+                                <i class="bi bi-check-circle me-2"></i>Phân Công Nhân Công
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -154,19 +189,23 @@ $dsPhanCong = $phanCong->layDanhSachPhanCong($ngayLoc, $maDCLoc, null);
         <!-- BỘ LỌC -->
         <div class="card shadow-sm mb-3">
             <div class="card-header bg-success text-white fw-bold">
-                <i class="bi bi-funnel me-2"></i>Danh Sách Phân Công
+                <i class="bi bi-funnel me-2"></i>Bộ Lọc Danh Sách Phân Công
             </div>
             <div class="card-body">
                 <form method="GET" action="">
                     <div class="row g-3">
                         <div class="col-lg-5 col-md-6">
-                            <label class="form-label fw-bold">Lọc Theo Ngày</label>
+                            <label class="form-label fw-bold">
+                                <i class="bi bi-calendar me-1"></i>Lọc Theo Ngày
+                            </label>
                             <input type="date" name="ngay" class="form-control" value="<?php echo htmlspecialchars($ngayLoc); ?>">
                         </div>
                         <div class="col-lg-5 col-md-6">
-                            <label class="form-label fw-bold">Dây Chuyền</label>
+                            <label class="form-label fw-bold">
+                                <i class="bi bi-gear me-1"></i>Dây Chuyền
+                            </label>
                             <select name="maDC" class="form-select">
-                                <option value="0">Tất Cả</option>
+                                <option value="0">Tất Cả Dây Chuyền</option>
                                 <?php foreach ($dsDayChuyen as $dc): ?>
                                     <option value="<?php echo $dc['maDC']; ?>" <?php echo $maDCLoc == $dc['maDC'] ? 'selected' : ''; ?>>
                                         <?php echo htmlspecialchars($dc['tenDC']); ?>
@@ -191,12 +230,12 @@ $dsPhanCong = $phanCong->layDanhSachPhanCong($ngayLoc, $maDCLoc, null);
                     <table class="table table-bordered table-hover align-middle mb-0">
                         <thead class="table-primary text-center">
                             <tr>
-                                <th style="width: 10%;">Ngày</th>
-                                <th style="width: 25%;">Dây Chuyền</th>
+                                <th style="width: 12%;">Ngày</th>
+                                <th style="width: 30%;">Dây Chuyền</th>
                                 <th style="width: 25%;">Nhân Viên</th>
-                                <th style="width: 15%;">Giờ BĐ</th>
-                                <th style="width: 15%;">Giờ KT</th>
-                                <th style="width: 10%;">Thao Tác</th>
+                                <th style="width: 12%;">Giờ BĐ</th>
+                                <th style="width: 12%;">Giờ KT</th>
+                                <th style="width: 9%;">Thao Tác</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -204,13 +243,21 @@ $dsPhanCong = $phanCong->layDanhSachPhanCong($ngayLoc, $maDCLoc, null);
                                 <?php foreach ($dsPhanCong as $pc): ?>
                                 <tr>
                                     <td class="text-center"><?php echo $pc['ngayFormat']; ?></td>
-                                    <td><?php echo htmlspecialchars($pc['tenDC']); ?></td>
                                     <td>
+                                        <i class="bi bi-gear text-success me-1"></i>
+                                        <?php echo htmlspecialchars($pc['tenDC']); ?>
+                                    </td>
+                                    <td>
+                                        <i class="bi bi-person text-info me-1"></i>
                                         <?php echo htmlspecialchars($pc['tenNV']); ?>
                                         <br><small class="text-muted"><?php echo htmlspecialchars($pc['tenLoai']); ?></small>
                                     </td>
-                                    <td class="text-center"><?php echo $pc['gioBDFormat']; ?></td>
-                                    <td class="text-center"><?php echo $pc['gioKTFormat']; ?></td>
+                                    <td class="text-center">
+                                        <span class="badge bg-success"><?php echo $pc['gioBDFormat']; ?></span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-danger"><?php echo $pc['gioKTFormat']; ?></span>
+                                    </td>
                                     <td class="text-center">
                                         <a href="?action=delete&id=<?php echo $pc['maPC']; ?>" 
                                            class="btn btn-danger btn-sm"
