@@ -1,3 +1,4 @@
+<<<<<<< HEAD:pages/kho_tp/index.php
 <?php 
 require_once('../../class/session_init.php');
 
@@ -60,3 +61,15 @@ include_once('../../layout/giaodien/khotp.php');   // giữ giao diện cũ anh 
 </div>
 
 <?php include_once('../../layout/footer.php'); ?>
+=======
+
+<?php 
+include_once('../../layout/giaodien/khotp.php'); ?>
+
+
+<div class="content">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6>Chào mừng <b><?php echo htmlspecialchars($_SESSION['hoTen']); ?></b> đến với Hệ thống!</h6>
+</div></div>
+
+>>>>>>> a040c0c6144f3aaee9a773d3eb09b6647c8a29e6:pages/khotp/index.php

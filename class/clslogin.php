@@ -5,7 +5,11 @@
         public function mylogin ($user, $pass){
             $pass = md5($pass);
             $link = $this->connect();
+<<<<<<< HEAD
             $sql = "select tk.iduser, username, password, phanquyen, nv.tenNV, nv.maNV
+=======
+            $sql = "select tk.iduser, username, password, phanquyen, nv.maNV, nv.tenNV, nv.gioiTinh
+>>>>>>> a040c0c6144f3aaee9a773d3eb09b6647c8a29e6
              from taikhoan tk
             join nhanvien nv on nv.iduser = tk.iduser
             where tk.username = '$user' and tk.password = '$pass' limit 1";
@@ -25,6 +29,10 @@
                 $_SESSION['pass'] = $password;
                 $_SESSION['hoTen'] = $tenNV;
                 $_SESSION['maNV'] = $maNV;
+<<<<<<< HEAD
+=======
+                $_SESSION['gioiTinh'] = $row['gioiTinh'];
+>>>>>>> a040c0c6144f3aaee9a773d3eb09b6647c8a29e6
                 $_SESSION['phanquyen'] = $phanquyen;
                 
                 return $phanquyen;

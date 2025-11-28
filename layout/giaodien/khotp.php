@@ -24,11 +24,21 @@ $p->checkPagePermission('4');
         // 1. ĐỊNH NGHĨA CÁC ĐƯỜNG DẪN (Links) cho Kho Thành Phẩm (KTP)
         // Giả sử các file nằm trong thư mục /pages/kho_tp/
         
+<<<<<<< HEAD
         $link_trang_chu             = $base_path . '/pages/kho_tp/index.php';             // Trang chủ chung của hệ thống
         $link_bc_chat_luong         = $base_path . '/pages/kho_tp/bccl.php';     // Báo cáo chất lượng
         $link_nhap_kho              = $base_path . '/pages/kho_tp/nhapkho.php';  // Nhập kho thành phẩm
         $link_xuat_kho              = $base_path . '/pages/kho_tp/xuatkho.php';  // Xuất kho thành phẩm
         $link_thong_ke_ton_kho      = $base_path . '/pages/kho_tp/thongke.php';     // Thống kê tồn kho
+=======
+        $link_trang_chu             = $base_path . '/pages/khotp/index.php';             // Trang chủ chung của hệ thống
+        $link_ds_lo_sp              = $base_path . '/pages/khotp/dslsp.php';    // Danh sách lô sản phẩm
+        $link_bc_chat_luong         = $base_path . '/pages/khotp/bccl.php';     // Báo cáo chất lượng
+        $link_nhap_kho              = $base_path . '/pages/khotp/nhapkho.php';  // Nhập kho thành phẩm
+        $link_xuat_kho              = $base_path . '/pages/khotp/xuatkho.php';  // Xuất kho thành phẩm
+        $link_thong_ke_ton_kho      = $base_path . '/pages/khotp/tktk.php';     // Thống kê tồn kho
+        $link_canh_bao              = $base_path . '/pages/khotp/canhbao.php';  // Cảnh báo
+>>>>>>> a040c0c6144f3aaee9a773d3eb09b6647c8a29e6
 
         // Lưu ý: Thay đổi tên file (.php) nếu cần thiết để khớp với cấu trúc thư mục thực tế của bạn
         ?>

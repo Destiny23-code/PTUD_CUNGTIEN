@@ -43,11 +43,20 @@ if(isset($_POST["btnLogin"])) {
 
             switch ($phanquyen_result) {
                 case '1': $redirect_url = "../pages/pkh/index.php"; break;
+<<<<<<< HEAD
                 case '2': $redirect_url = "../layout/giaodien/qdx.php"; break;
                 case '3': $redirect_url = "../layout/giaodien/khonl.php"; break;
                 case '4': $redirect_url = "kho_tp/index.php"; break;   // ← Đúng đường dẫn
                 case '5': $redirect_url = "../layout/giaodien/qc.php"; break;
                 case '6': $redirect_url = "../layout/giaodien/bgd.php"; break;
+=======
+                case '2': $redirect_url = "../pages/qdx/index.php"; break;
+                case '3': $redirect_url = "../pages/khonl/index.php"; break;
+                case '4': $redirect_url = "../pages/khotp/index.php"; break;
+                case '5': $redirect_url = "../pages/qc/index.php"; break;
+                case '6': $redirect_url = "../pages/bgd/index.php"; break;
+                case '7': $redirect_url = "../pages/congnhan/ttcn.php"; break;
+>>>>>>> a040c0c6144f3aaee9a773d3eb09b6647c8a29e6
             }
             
             header("Location: " . $redirect_url);

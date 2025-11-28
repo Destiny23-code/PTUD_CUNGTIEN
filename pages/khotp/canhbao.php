@@ -4,7 +4,7 @@ require_once("../../class/clslogin.php");
 $p = new login();
 
 // Kiểm tra đăng nhập
-if (isset($_SESSION['id'], $_SESSION['user'], $_SESSION['pass'], $_SESSION['phanquyen'])) {
+if (isset($_SESSION['id']) && isset($_SESSION['user']) && isset($_SESSION['pass']) && isset($_SESSION['phanquyen'])) {
     if (!$p->confirmlogin($_SESSION['id'], $_SESSION['user'], $_SESSION['pass'], $_SESSION['phanquyen'])) {
         header("Location: ../dangnhap/dangnhap.php");
         exit();
@@ -14,8 +14,10 @@ if (isset($_SESSION['id'], $_SESSION['user'], $_SESSION['pass'], $_SESSION['phan
     exit();
 }
 
-include_once('../../layout/giaodien/qc.php');
+include_once('../../layout/giaodien/khotp.php');
 include_once('../../class/clsconnect.php');
+require_once('../../class/clsCanhBao.php');
+$canhBao = new CanhBao();
 
 // Kết nối CSDL
 $ketnoiObj = new ketnoi();
@@ -26,6 +28,9 @@ mysqli_set_charset($conn, "utf8mb4");
 $maLo = isset($_GET['maLo']) ? trim($_GET['maLo']) : '';
 $ngaySX = isset($_GET['ngaySX']) ? trim($_GET['ngaySX']) : '';
 
+// Xây WHERE
+$where_clauses = array();
+
 if (!empty($maLo)) {
     $where_clauses[] = "l.maLo LIKE '%" . $conn->real_escape_string($maLo) . "%'";
 }
@@ -33,7 +38,9 @@ if (!empty($ngaySX)) {
     $where_clauses[] = "l.ngaySX = '" . $conn->real_escape_string($ngaySX) . "'";
 }
 
-// SQL
+$where = (count($where_clauses) > 0) ? (' WHERE ' . implode(' AND ', $where_clauses)) : '';
+
+// truy van sql
 $sql = "
 SELECT  
     l.maLo,
@@ -44,8 +51,9 @@ SELECT
     l.trangthai
 FROM 
     losanpham AS l
-WHERE 
-    l.trangthai != 'Đã kiểm định'
+{$where}
+ORDER BY 
+    l.ngaySX DESC
 ";
 
 $data_list = $ketnoiObj->laydulieu($conn, $sql);
@@ -96,6 +104,7 @@ $stt = 1;
                     <tr>
                         <th>#</th>
                         <th>Mã lô</th>
+                        <!-- <th>Mã SP</th> -->
                         <th>Ngày sản xuất</th>
                         <th>Ngày hết hạn</th>
                         <th>Số lượng</th>
@@ -104,15 +113,18 @@ $stt = 1;
                 </thead>
                 <tbody>
                     <?php
-                    if (!empty($data_list)) {
+                    if (is_array($data_list) && count($data_list) > 0) {
                         foreach ($data_list as $row) {
-                            echo "<tr>";
+                            $rowClass = $canhBao->getRowClass($row['ngayHetHan']);
+                            $badge = $canhBao->getWarningBadge($row['ngayHetHan'], $row['trangthai']);
+                            echo "<tr class='$rowClass'>";
                             echo "<td>" . $stt++ . "</td>";
                             echo "<td>" . htmlspecialchars($row['maLo']) . "</td>";
+                            // echo "<td>" . htmlspecialchars($row['maSP']) . "</td>";
                             echo "<td>" . htmlspecialchars($row['ngaySX']) . "</td>";
                             echo "<td>" . htmlspecialchars($row['ngayHetHan']) . "</td>";
                             echo "<td>" . htmlspecialchars($row['SoLuong']) . "</td>";
-                            echo "<td>" . htmlspecialchars($row['trangthai']) . "</td>";
+                            echo "<td>" . htmlspecialchars($row['trangthai']) . " $badge</td>";
                             echo "</tr>";
                         }
                     } else {
