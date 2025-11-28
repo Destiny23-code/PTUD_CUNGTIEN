@@ -1,74 +1,78 @@
-<?php 
-include_once('../../layout/header.php'); 
-// Giả định $base_path (đường dẫn gốc) và $current_path (đường dẫn hiện tại) đã được định nghĩa
-?>
 <?php
-require_once("../../class/clslogin.php"); 
+session_start();
+require_once("../../class/clslogin.php");
 $p = new login();
-    if (isset($_SESSION['id']) && isset($_SESSION['user']) && isset($_SESSION['pass']) && isset($_SESSION['phanquyen'])) {
-        //$p->confirmlogin($_SESSION['id'], $_SESSION['user'], $_SESSION['pass'], $_SESSION['phanquyen']);
-        if (!$p->confirmlogin($_SESSION['id'], $_SESSION['user'], $_SESSION['pass'], $_SESSION['phanquyen'])) {
-            header("Location: ../dangnhap.php"); exit();
-        }
-    } else {
-        header("Location: ../dangnhap.php");
-        exit();
-    }
+
+// Kiểm tra đăng nhập
+if (!isset($_SESSION['id']) || !isset($_SESSION['user']) || !isset($_SESSION['pass']) || !isset($_SESSION['phanquyen'])) {
+    header("Location: ../../pages/dangnhap.php");
+    exit();
+}
+if (!$p->confirmlogin($_SESSION['id'], $_SESSION['user'], $_SESSION['pass'], $_SESSION['phanquyen'])) {
+    header("Location: ../../pages/dangnhap.php");
+    exit();
+}
+
+// Chỉ cho phép thủ kho (phanquyen = 4)
 $p->checkPagePermission('4');
 
+include_once('../../layout/header.php');
+
+// Tính base_path và current_path để active menu đúng
+$script_name = $_SERVER['SCRIPT_NAME'];
+$base_path = substr($script_name, 0, strrpos($script_name, '/pages'));
+$current_path = strtok($_SERVER["REQUEST_URI"], '?');
 ?>
 
 <div class="sidebar">
     <div class="nav flex-column mt-2">
-        <?php 
-        // 1. ĐỊNH NGHĨA CÁC ĐƯỜNG DẪN (Links) cho Kho Thành Phẩm (KTP)
-        // Giả sử các file nằm trong thư mục /pages/kho_tp/
-        
-<<<<<<< HEAD
-        $link_trang_chu             = $base_path . '/pages/kho_tp/index.php';             // Trang chủ chung của hệ thống
-        $link_bc_chat_luong         = $base_path . '/pages/kho_tp/bccl.php';     // Báo cáo chất lượng
-        $link_nhap_kho              = $base_path . '/pages/kho_tp/nhapkho.php';  // Nhập kho thành phẩm
-        $link_xuat_kho              = $base_path . '/pages/kho_tp/xuatkho.php';  // Xuất kho thành phẩm
-        $link_thong_ke_ton_kho      = $base_path . '/pages/kho_tp/thongke.php';     // Thống kê tồn kho
-=======
-        $link_trang_chu             = $base_path . '/pages/khotp/index.php';             // Trang chủ chung của hệ thống
-        $link_ds_lo_sp              = $base_path . '/pages/khotp/dslsp.php';    // Danh sách lô sản phẩm
-        $link_bc_chat_luong         = $base_path . '/pages/khotp/bccl.php';     // Báo cáo chất lượng
-        $link_nhap_kho              = $base_path . '/pages/khotp/nhapkho.php';  // Nhập kho thành phẩm
-        $link_xuat_kho              = $base_path . '/pages/khotp/xuatkho.php';  // Xuất kho thành phẩm
-        $link_thong_ke_ton_kho      = $base_path . '/pages/khotp/tktk.php';     // Thống kê tồn kho
-        $link_canh_bao              = $base_path . '/pages/khotp/canhbao.php';  // Cảnh báo
->>>>>>> a040c0c6144f3aaee9a773d3eb09b6647c8a29e6
 
-        // Lưu ý: Thay đổi tên file (.php) nếu cần thiết để khớp với cấu trúc thư mục thực tế của bạn
+        <?php
+        $link_trangchu     = $base_path . '/pages/khotp/index.php';
+        $link_bccl         = $base_path . '/pages/khotp/bccl.php';
+        $link_nhapkho      = $base_path . '/pages/khotp/nhapkho.php';
+        $link_xuatkho      = $base_path . '/pages/khotp/xuatkho.php';
+        $link_thongke      = $base_path . '/pages/khotp/thongke.php';
+        $link_canhbao      = $base_path . '/pages/khotp/canhbao.php';
+        $link_dslsp        = $base_path . '/pages/khotp/dslsp.php';
         ?>
 
-        <a href="<?php echo $link_trang_chu; ?>" 
-            class="<?php echo ($current_path == $link_trang_chu || $current_path == $base_path . '/') ? 'active' : ''; ?>">
-            <i class="bi bi-house-door me-2"></i>Trang chủ
+        <a href="<?= $link_trangchu ?>"
+            class="nav-link <?= ($current_path == parse_url($link_trangchu, PHP_URL_PATH)) ? 'active' : '' ?>">
+            Trang chủ kho
         </a>
 
-        
-        <div class="nav-section">KHO THÀNH PHẨM</div>
+        <div class="nav-section fw-bold text-primary mt-3">KHO THÀNH PHẨM</div>
 
-        <a href="<?php echo $link_bc_chat_luong; ?>" 
-            class="<?php echo ($current_path == $link_bc_chat_luong) ? 'active' : ''; ?>">
-            <i class="bi bi-file-earmark-bar-graph me-2"></i>Báo cáo chất lượng
+        <a href="<?= $link_bccl ?>"
+            class="nav-link <?= ($current_path == parse_url($link_bccl, PHP_URL_PATH)) ? 'active' : '' ?>">
+            Báo cáo chất lượng
         </a>
 
-        <a href="<?php echo $link_nhap_kho; ?>" 
-            class="<?php echo ($current_path == $link_nhap_kho) ? 'active' : ''; ?>">
-            <i class="bi bi-arrow-down-right-square me-2"></i>Nhập kho thành phẩm
+        <a href="<?= $link_nhapkho ?>"
+            class="nav-link <?= ($current_path == parse_url($link_nhapkho, PHP_URL_PATH)) ? 'active' : '' ?>">
+            Nhập kho thành phẩm
         </a>
 
-        <a href="<?php echo $link_xuat_kho; ?>" 
-            class="<?php echo ($current_path == $link_xuat_kho) ? 'active' : ''; ?>">
-            <i class="bi bi-arrow-up-right-square me-2"></i>Xuất kho thành phẩm
+        <a href="<?= $link_xuatkho ?>"
+            class="nav-link <?= ($current_path == parse_url($link_xuatkho, PHP_URL_PATH)) ? 'active' : '' ?>">
+            Xuất kho thành phẩm
         </a>
 
-        <a href="<?php echo $link_thong_ke_ton_kho; ?>" 
-            class="<?php echo ($current_path == $link_thong_ke_ton_kho) ? 'active' : ''; ?>">
-            <i class="bi bi-bar-chart me-2"></i>Thống kê tồn kho
+        <a href="<?= $link_thongke ?>"
+            class="nav-link <?= ($current_path == parse_url($link_thongke, PHP_URL_PATH)) ? 'active' : '' ?>">
+            Thống kê tồn kho
         </a>
+
+        <a href="<?= $link_canhbao ?>"
+            class="nav-link <?= ($current_path == parse_url($link_canhbao, PHP_URL_PATH)) ? 'active' : '' ?>">
+            Cảnh báo tồn kho
+        </a>
+
+        <a href="<?= $link_dslsp ?>"
+            class="nav-link <?= ($current_path == parse_url($link_dslsp, PHP_URL_PATH)) ? 'active' : '' ?>">
+            Danh sách sản phẩm
+        </a>
+
     </div>
 </div>

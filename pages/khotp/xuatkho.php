@@ -1,13 +1,15 @@
 <?php
-require_once('../../class/session_init.php');
-require_once('../../class/clsconnect.php');
 include_once('../../layout/giaodien/khotp.php');
+require_once('../../class/clsconnect.php');
 
 if (!isset($_SESSION['hoTen'])) {
-    header('Location: ' . ($base_path ?? '') . '/pages/dangnhap/dangnhap.php');
+    header('Location: ../../pages/dangnhap/dangnhap.php');
     exit;
 }
-$conn = (new ketnoi())->connect();
+
+// SỬA: Dùng cách gọi ổn định, không cần sửa clsconnect.php
+$ketnoi_instance = new ketnoi();
+$conn = $ketnoi_instance->connect();
 
 // Chỉ hiện đơn khi đủ 100% tồn kho để giao 1 lần
 $sql = "
@@ -21,7 +23,7 @@ JOIN khachhang kh ON dh.maKH = kh.maKH
 JOIN sanpham sp ON ct.maSP = sp.maSP
 WHERE dh.trangThai NOT IN ('Hoàn thành','Đã hủy')
   AND ct.soLuong <= sp.soLuongTon
-GROUP BY ct.maCTDH
+GROUP BY dh.maDH, ct.maSP
 ORDER BY dh.ngayGiaoDuKien ASC
 ";
 $rs = $conn->query($sql);
@@ -70,12 +72,11 @@ body {
 <div class="content">
     <div class="card shadow-sm p-4">
         <h5 class="fw-bold text-primary mb-4">
-            <i class="bi bi-truck me-2"></i> Xuất kho - Chỉ xuất khi đủ 100% đơn hàng
+            Xuất kho - Chỉ xuất khi đủ 100% đơn hàng
         </h5>
 
         <?php if ($rs->num_rows == 0): ?>
-        <div class="alert alert-warning text-center">
-            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        <div class="alert alert-warning text-center py-5">
             Chưa có đơn hàng nào đủ hàng để xuất kho.
         </div>
         <?php endif; ?>
@@ -115,12 +116,12 @@ body {
 
             <div class="text-end mt-4">
                 <button type="button" id="btnXuat" class="btn btn-success shadow-lg">
-                    <i class="bi bi-send-fill me-2"></i> XUẤT KHO ĐỦ ĐƠN HÀNG
+                    XUẤT KHO ĐỦ ĐƠN HÀNG
                 </button>
             </div>
         </form>
 
-        <!-- Phiếu xuất kho đầy đủ thông tin -->
+        <!-- Phiếu xuất kho -->
         <div id="phieuXuatKho" class="card shadow mt-5 d-none">
             <div class="card-body p-5" id="thongTinPhieu"></div>
         </div>
@@ -140,9 +141,9 @@ document.getElementById("btnXuat").addEventListener("click", function() {
         });
     });
 
-    if (items.length === 0) return alert("Chọn ít nhất 1 đơn hàng!");
+    if (items.length === 0) return alert("Vui lòng chọn ít nhất 1 đơn hàng!");
 
-    if (!confirm(`Xuất kho ${items.length} đơn hàng đủ số lượng?`)) return;
+    if (!confirm(`Xuất kho ${items.length} đơn hàng?`)) return;
 
     fetch('xuly_xuatkho.php', {
             method: 'POST',
@@ -158,11 +159,12 @@ document.getElementById("btnXuat").addEventListener("click", function() {
             if (data.status === 'error') return alert(data.message);
             document.getElementById('thongTinPhieu').innerHTML = data.html;
             document.getElementById('phieuXuatKho').classList.remove('d-none');
-            alert('Xuất kho thành công! Đơn hàng đã được đánh dấu Hoàn thành.');
-        });
+            alert('Xuất kho thành công!');
+        })
+        .catch(err => alert('Lỗi kết nối: ' + err));
 });
 
-// Click dòng chọn
+// Click dòng để chọn
 document.querySelectorAll('.donhang-row').forEach(row => {
     row.onclick = function(e) {
         if (e.target.tagName === 'INPUT') return;

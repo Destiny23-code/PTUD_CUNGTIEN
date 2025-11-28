@@ -1,9 +1,10 @@
 <?php
-require_once('../../class/session_init.php');
-require_once('../../class/clsconnect.php');
 include_once('../../layout/giaodien/khotp.php');
+require_once('../../class/clsconnect.php');
 
-$conn = (new ketnoi())->connect();
+// SỬA: Kết nối ổn định
+$ketnoi_instance = new ketnoi();
+$conn = $ketnoi_instance->connect();
 
 // --- Dữ liệu ---
 $sql = "SELECT COUNT(maSP) as tong_sp, SUM(soLuongTon) as tong_ton, AVG(soLuongTon) as tb_ton FROM sanpham";

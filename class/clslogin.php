@@ -1,67 +1,73 @@
 <?php
-    require_once("clsconnect.php");
-    class login extends ketnoi{
-       
-        public function mylogin ($user, $pass){
-            $pass = md5($pass);
-            $link = $this->connect();
-<<<<<<< HEAD
-            $sql = "select tk.iduser, username, password, phanquyen, nv.tenNV, nv.maNV
-=======
-            $sql = "select tk.iduser, username, password, phanquyen, nv.maNV, nv.tenNV, nv.gioiTinh
->>>>>>> a040c0c6144f3aaee9a773d3eb09b6647c8a29e6
-             from taikhoan tk
-            join nhanvien nv on nv.iduser = tk.iduser
-            where tk.username = '$user' and tk.password = '$pass' limit 1";
-            $kq = $link->query($sql);
-            $i = $kq->num_rows;
-            if ($i == 1){
-                while($row = $kq->fetch_assoc()){
-                $id = $row['iduser'];
-                $username = $row['username'];
-                $password = $row['password'];
-                $tenNV = $row['tenNV'];
-                $maNV = $row['maNV'];
-                $phanquyen = $row['phanquyen'];
-                $_SESSION['login'] = true;
-                $_SESSION['id'] = $id;
-                $_SESSION['user'] = $username;
-                $_SESSION['pass'] = $password;
-                $_SESSION['hoTen'] = $tenNV;
-                $_SESSION['maNV'] = $maNV;
-<<<<<<< HEAD
-=======
-                $_SESSION['gioiTinh'] = $row['gioiTinh'];
->>>>>>> a040c0c6144f3aaee9a773d3eb09b6647c8a29e6
-                $_SESSION['phanquyen'] = $phanquyen;
-                
-                return $phanquyen;
-                //header("Location: index.php?act=admin"); exit();
-                }
-            }
-            else{
-                return 0;
-            }
+require_once("clsconnect.php");
+
+class login extends ketnoi {
+
+    public function mylogin($user, $pass) {
+        $pass = md5($pass); // vẫn giữ md5 như code cũ của nhóm
+        $link = $this->connect();
+
+        // ĐÃ XÓA gioiTinh vì bảng nhanvien chưa có cột này
+        $sql = "SELECT tk.iduser, tk.username, tk.password, tk.phanquyen, 
+                       nv.maNV, nv.tenNV
+                FROM taikhoan tk
+                JOIN nhanvien nv ON nv.iduser = tk.iduser
+                WHERE tk.username = ? AND tk.password = ?
+                LIMIT 1";
+
+        $stmt = $link->prepare($sql);
+        if (!$stmt) {
+            return 0; // lỗi prepare
         }
-        public function confirmlogin($id, $user, $pass, $phanquyen){
-            $link = $this->connect();
-            $sql = "select iduser from taikhoan where iduser='$id' and username='$user' and password='$pass' and phanquyen='$phanquyen' limit 1";
-            $result = $link->query($sql);
-            $num = $result->num_rows;
-            /*if($num!=1){
-                header("Location: view/login.php");
-            }*/
-            return $num == 1;
+
+        $stmt->bind_param("ss", $user, $pass);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        if ($result->num_rows == 1) {
+            $row = $result->fetch_assoc();
+
+            // Lưu session
+            $_SESSION['login']      = true;
+            $_SESSION['id']         = $row['iduser'];
+            $_SESSION['user']       = $row['username'];
+            $_SESSION['pass']       = $row['password'];
+            $_SESSION['hoTen']      = $row['tenNV'];
+            $_SESSION['maNV']       = $row['maNV'];
+            $_SESSION['phanquyen']  = $row['phanquyen'];
+
+            // Nếu sau này thêm cột gioiTinh thì chỉ cần bỏ comment dòng dưới
+            // $_SESSION['gioiTinh'] = $row['gioiTinh'] ?? '';
+
+            return $row['phanquyen']; // trả về quyền để điều hướng
+        } else {
+            return 0; // sai tài khoản/mật khẩu
         }
-        public function checkPagePermission($requiredPermission) {
-    if (!isset($_SESSION['phanquyen']) || $_SESSION['phanquyen'] != $requiredPermission) {
-        echo "<script>
-                alert('You do not have permission to access this function');
-                window.history.back();
-              </script>";
-        exit();
     }
-    return true;
+
+    // Kiểm tra session còn hợp lệ không
+    public function confirmlogin($id, $user, $pass, $phanquyen) {
+        $link = $this->connect();
+        $sql = "SELECT iduser FROM taikhoan 
+                WHERE iduser = ? AND username = ? AND password = ? AND phanquyen = ? 
+                LIMIT 1";
+        $stmt = $link->prepare($sql);
+        $stmt->bind_param("issi", $id, $user, $pass, $phanquyen);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        return $result->num_rows == 1;
+    }
+
+    // Kiểm tra quyền truy cập trang
+    public function checkPagePermission($requiredPermission) {
+        if (!isset($_SESSION['phanquyen']) || $_SESSION['phanquyen'] != $requiredPermission) {
+            echo "<script>
+                    alert('Bạn không có quyền truy cập chức năng này!');
+                    window.history.back();
+                  </script>";
+            exit();
+        }
+        return true;
+    }
 }
-    }
 ?>

@@ -1,11 +1,12 @@
 <?php
-require_once('../../class/session_init.php');
-require_once('../../class/clsconnect.php');
 include_once('../../layout/giaodien/khotp.php');
+require_once('../../class/clsconnect.php');
 
-$conn = (new ketnoi())->connect();
+// SỬA: Dùng cách kết nối ổn định, không bị lỗi T_OBJECT_OPERATOR
+$ketnoi_instance = new ketnoi();
+$conn = $ketnoi_instance->connect();
 
-// CHỈ HIỆN BÁO CÁO ĐÃ CÓ KẾT QUẢ (Đạt hoặc Không đạt) - ĐÚNG CHUẨN THỰC TẾ
+// CHỈ HIỆN BÁO CÁO ĐÃ CÓ KẾT QUẢ (Đạt hoặc Không đạt)
 $sql = "SELECT p.maPKD, p.ngayLap, p.nguoiLap, p.tieuChi, p.maLo, p.maPhieu, p.ketQuaBaoCao, 
                l.maSP, l.ngaySX, l.soLuong as soLuongLo, sp.tenSP, sp.soLuongTon, sp.hanSuDung
         FROM phieubaocaochatluong p 
@@ -14,10 +15,11 @@ $sql = "SELECT p.maPKD, p.ngayLap, p.nguoiLap, p.tieuChi, p.maLo, p.maPhieu, p.k
         WHERE p.ketQuaBaoCao IS NOT NULL 
           AND p.ketQuaBaoCao != '' 
           AND p.ketQuaBaoCao IN ('Đạt', 'Không đạt')
-        ORDER BY CAST(p.maPKD AS UNSIGNED) DESC";  // mới nhất lên đầu
+        ORDER BY CAST(p.maPKD AS UNSIGNED) DESC";
+
 $res = $conn->query($sql);
 $rows = [];
-if ($res) {
+if ($res && $res->num_rows > 0) {
     while ($r = $res->fetch_assoc()) {
         $r['hanSuDung_formatted'] = ($r['hanSuDung'] && $r['hanSuDung'] != '0000-00-00') 
             ? date('d/m/Y', strtotime($r['hanSuDung'])) : 'Không xác định';
@@ -35,10 +37,6 @@ function e($value) {
 .table-hover tbody tr:hover {
     background-color: #f0f8ff;
     cursor: pointer;
-}
-
-.tieu-chi {
-    margin-top: 20px;
 }
 
 .tieu-chi ul {
@@ -64,16 +62,13 @@ function e($value) {
 <div class="content">
     <div class="card shadow-sm p-4">
         <h5 class="fw-bold text-primary mb-3">
-            <i class="bi bi-file-earmark-check me-2"></i>Kết quả báo cáo chất lượng
+            Kết quả báo cáo chất lượng
         </h5>
 
         <div class="row g-2 mb-3">
-            <div class="col-md-3">
-                <input type="text" id="timMaBaoCao" class="form-control" placeholder="Tìm theo mã báo cáo...">
-            </div>
-            <div class="col-md-3">
-                <input type="date" id="timNgayLap" class="form-control">
-            </div>
+            <div class="col-md-3"><input type="text" id="timMaBaoCao" class="form-control"
+                    placeholder="Tìm theo mã báo cáo..."></div>
+            <div class="col-md-3"><input type="date" id="timNgayLap" class="form-control"></div>
             <div class="col-md-2">
                 <select id="timTrangThai" class="form-select">
                     <option value="">-- Tất cả --</option>
@@ -81,13 +76,8 @@ function e($value) {
                     <option value="Không đạt">Không đạt</option>
                 </select>
             </div>
-            <div class="col-md-2">
-                <button class="btn btn-primary w-100" onclick="locBaoCao()">
-                    <i class="bi bi-search"></i> Tìm kiếm
-                </button>
-            </div>
-            <div class="col-md-2">
-                <button class="btn btn-secondary w-100" onclick="hienThiBaoCao()">Đặt lại</button>
+            <div class="col-md-2"><button class="btn btn-primary w-100" onclick="locBaoCao()">Tìm kiếm</button></div>
+            <div class="col-md-2"><button class="btn btn-secondary w-100" onclick="hienThiBaoCao()">Đặt lại</button>
             </div>
         </div>
 
@@ -108,8 +98,7 @@ function e($value) {
                 <tbody>
                     <?php if (empty($rows)): ?>
                     <tr>
-                        <td colspan="8" class="text-center text-muted">
-                            <i class="bi bi-info-circle"></i> Chưa có báo cáo chất lượng nào được hoàn tất.
+                        <td colspan="8" class="text-center text-muted">Chưa có báo cáo chất lượng nào được hoàn tất.
                         </td>
                     </tr>
                     <?php else: foreach($rows as $r): ?>
@@ -118,9 +107,7 @@ function e($value) {
                         <td><?= e($r['maSP']) ?></td>
                         <td><?= e($r['tenSP']) ?></td>
                         <td><?= e($r['maLo']) ?></td>
-                        <td class="text-center fw-bold text-primary">
-                            <?= $r['soLuongLo_formatted'] ?>
-                        </td>
+                        <td class="text-center fw-bold text-primary"><?= $r['soLuongLo_formatted'] ?></td>
                         <td><?= e($r['nguoiLap']) ?></td>
                         <td><?= e($r['ngayLap']) ?></td>
                         <td class="text-center">
@@ -136,12 +123,12 @@ function e($value) {
     </div>
 </div>
 
-<!-- Modal chi tiết (giữ nguyên đẹp) -->
+<!-- Modal chi tiết -->
 <div class="modal fade" id="modalChiTiet" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title fw-bold"><i class="bi bi-file-check"></i> Chi tiết báo cáo chất lượng</h5>
+                <h5 class="modal-title fw-bold">Chi tiết báo cáo chất lượng</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -183,9 +170,8 @@ function e($value) {
                         <td><span id="ctTrangThai" class="badge"></span></td>
                     </tr>
                 </table>
-
                 <div class="tieu-chi">
-                    <h6 class="fw-bold text-primary mb-2"><i class="bi bi-list-check"></i> Tiêu chí kiểm định:</h6>
+                    <h6 class="fw-bold text-primary mb-2">Tiêu chí kiểm định:</h6>
                     <div id="ctTieuChi"
                         style="background:#f8f9fa;padding:15px;border-radius:8px;max-height:250px;overflow-y:auto;">
                     </div>
@@ -202,7 +188,7 @@ const duLieuBaoCao = <?= json_encode($rows) ?>;
 function hienThiBaoCao(ds = duLieuBaoCao) {
     const tbody = document.querySelector("#baoCaoTable tbody");
     tbody.innerHTML = ds.length === 0 ?
-        '<tr><td colspan="8" class="text-center text-muted"><i class="bi bi-info-circle"></i> Chưa có báo cáo chất lượng nào được hoàn tất.</td></tr>' :
+        '<tr><td colspan="8" class="text-center text-muted">Chưa có báo cáo chất lượng nào được hoàn tất.</td></tr>' :
         '';
     ds.forEach(bc => {
         const badge = bc.ketQuaBaoCao === 'Đạt' ? 'bg-success' : 'bg-danger';
@@ -246,10 +232,9 @@ function moChiTiet(bc) {
     badge.textContent = bc.ketQuaBaoCao || '';
     badge.className = 'badge ' + (bc.ketQuaBaoCao === 'Đạt' ? 'bg-success' : 'bg-danger');
 
-    const tieuChi = bc.tieuChi || 'Không có thông tin tiêu chí.';
-    const lines = tieuChi.split(/[,;]/).map(s => s.trim()).filter(s => s);
+    const lines = (bc.tieuChi || '').split(/[,;]/).map(s => s.trim()).filter(s => s);
     document.getElementById("ctTieuChi").innerHTML = lines.length > 1 ?
-        '<ul>' + lines.map(l => `<li>${l}</li>`).join('') + '</ul>' : tieuChi;
+        '<ul>' + lines.map(l => `<li>${l}</li>`).join('') + '</ul>' : (bc.tieuChi || 'Không có thông tin tiêu chí.');
 
     new bootstrap.Modal(document.getElementById("modalChiTiet")).show();
 }

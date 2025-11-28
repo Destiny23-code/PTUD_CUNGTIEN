@@ -2,10 +2,12 @@
 class nhapkho {
 
     public function layLoNhapDuoc() {
-        $conn = (new ketnoi())->connect();
-        if (!$conn) return [];
+        require_once("clsconnect.php");
+        
+        // Cách gọi ổn định 100% – không cần sửa clsconnect.php
+        $ketnoi_instance = new ketnoi();
+        $conn = $ketnoi_instance->connect();
 
-        // FIX CHÍNH: Dùng EXISTS để kiểm tra lô có ít nhất 1 báo cáo "Đạt" và chưa nhập kho
         $sql = "SELECT 
                     l.maLo,
                     l.maSP,
@@ -22,13 +24,12 @@ class nhapkho {
                     SELECT 1 FROM chitiet_phieunhapkho ct 
                     WHERE ct.maLo = l.maLo
                 )
-                ORDER BY l.maLo DESC, l.maSP ASC";
+                ORDER BY l.maLo DESC";
 
         $result = $conn->query($sql);
         $ds = [];
-        if ($result) {
+        if ($result && $result->num_rows > 0) {
             while ($row = $result->fetch_assoc()) {
-                $row['trangThaiQC'] = 'Đạt QC';
                 $ds[] = $row;
             }
         }

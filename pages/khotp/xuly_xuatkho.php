@@ -1,5 +1,5 @@
 <?php
-require_once('../../class/session_init.php');
+session_start();
 require_once('../../class/clsconnect.php');
 header('Content-Type: application/json');
 
@@ -16,7 +16,10 @@ if (empty($items)) {
     exit;
 }
 
-$conn = (new ketnoi())->connect();
+// SỬA: Dùng cách gọi ổn định – không cần sửa clsconnect.php
+$ketnoi_instance = new ketnoi();
+$conn = $ketnoi_instance->connect();
+
 $conn->autocommit(false);
 
 try {
@@ -33,24 +36,24 @@ try {
     $tongSL  = 0;
 
     foreach ($items as $it) {
-        $maDH = (int)$it['maDH'];
-        $sl   = (int)$it['soLuong'];
+    $maDH = (int)$it['maDH'];
+    $sl   = (int)$it['soLuong'];
 
-        // Lấy đầy đủ thông tin cần hiển thị (mã SP + tên SP + tên KH)
-        $q = $conn->query("SELECT 
-                kh.tenKH,
-                sp.maSP,
-                sp.tenSP,
-                dh.ngayGiaoDuKien
-            FROM chitiet_donhang ct
-            JOIN khachhang kh ON ct.maKH = kh.maKH
-            JOIN sanpham sp   ON ct.maSP = sp.maSP
-            JOIN donhang dh   ON ct.maDH = dh.maDH
-            WHERE ct.maDH = $maDH
-            LIMIT 1");
-        $r = $q->fetch_assoc();
+    // SỬA ĐOẠN NÀY – JOIN ĐÚNG BẢNG
+    $q = $conn->query("SELECT 
+            kh.tenKH,
+            sp.maSP,
+            sp.tenSP,
+            dh.ngayGiaoDuKien
+        FROM chitiet_donhang ct
+        JOIN donhang dh ON ct.maDH = dh.maDH
+        JOIN khachhang kh ON dh.maKH = kh.maKH
+        JOIN sanpham sp ON ct.maSP = sp.maSP
+        WHERE ct.maDH = $maDH 
+        LIMIT 1");
+    $r = $q->fetch_assoc();
 
-        // Ghi chi tiết phiếu xuất (chỉ lưu những gì cần thiết)
+        // Ghi chi tiết phiếu xuất
         $conn->query("INSERT INTO chitiet_phieuxuatkho (maPXK, maDH, soLuongXuat) 
                       VALUES ('$maPXK', $maDH, $sl)");
 
@@ -62,9 +65,9 @@ try {
 
         $chiTiet[] = [
             'maDH'     => $maDH,
-            'tenKH'    => $r['tenKH'],
-            'maSP'     => $r['maSP'],
-            'tenSP'    => $r['tenSP'],
+            'tenKH'    => $r['tenKH'] ?? 'Không xác định',
+            'maSP'     => $r['maSP'] ?? '',
+            'tenSP'    => $r['tenSP'] ?? '',
             'soLuong'  => $sl,
             'ngayGiao' => $r['ngayGiaoDuKien'] ? date('d/m/Y', strtotime($r['ngayGiaoDuKien'])) : ''
         ];
@@ -73,15 +76,15 @@ try {
 
     // Đánh dấu đơn hàng hoàn thành
     foreach ($items as $it) {
-        $conn->query("UPDATE donhang SET trangThai = 'Hoàn thành' WHERE maDH = {$it['maDH']}");
+        $conn->query("UPDATE donhang SET trangThai = 'Hoàn thành' WHERE maDH = " . (int)$it['maDH']);
     }
 
     $conn->commit();
 
-    // === PHIẾU XUẤT KHO ĐẸP – THEO ĐÚNG YÊU CẦU MỚI ===
+    // Tạo phiếu xuất đẹp
     $html = "<div class='text-center mb-4'>
                 <h2 class='text-success fw-bold'>PHIẾU XUẤT KHO PXK$maPXK</h2>
-                <p class='fs-5'>Ngày xuất: <strong>$ngaygio</strong> | Người xuất kho: <strong>$nguoi</strong></p>
+                <p class='fs-5'>Ngày xuất: <strong>$ngaygio</strong> | Người xuất: <strong>$nguoi</strong></p>
              </div>";
 
     $html .= "<table class='table table-bordered table-hover'>
@@ -89,7 +92,7 @@ try {
                     <tr>
                         <th>ĐH</th>
                         <th>Tên khách hàng</th>
-                        <th>Mã sản phẩm</th>
+                        <th>Mã SP</th>
                         <th>Tên sản phẩm</th>
                         <th>Số lượng</th>
                         <th>Ngày giao</th>
@@ -113,20 +116,16 @@ try {
                 <td class='text-center text-primary'>" . number_format($tongSL) . " sp</td>
                 <td></td>
               </tr>
-              </tbody>
-              </table>";
+              </tbody></table>";
 
     $html .= "<div class='alert alert-success text-center mt-4 fw-bold'>
-                Xuất kho thành công! Các đơn hàng đã được chuyển trạng thái <strong>Hoàn thành</strong>
+                Xuất kho thành công! Đơn hàng đã chuyển trạng thái <strong>Hoàn thành</strong>
               </div>";
 
-    echo json_encode([
-        'status' => 'success',
-        'html'   => $html
-    ]);
+    echo json_encode(['status' => 'success', 'html' => $html]);
 
 } catch(Exception $e) {
     $conn->rollback();
-    echo json_encode(['status'=>'error','message'=>$e->getMessage()]);
+    echo json_encode(['status'=>'error','message'=>'Lỗi: ' . $e->getMessage()]);
 }
 ?>

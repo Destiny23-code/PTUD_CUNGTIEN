@@ -1,7 +1,7 @@
 <?php 
-require_once("../../class/session_init.php");
-require_once("../../class/clsNhapKho.php");
 include_once('../../layout/giaodien/khotp.php');
+require_once("../../class/clsNhapKho.php");
+
 
 if (!isset($_SESSION['hoTen'])) {
     header("Location: ../../pages/dangnhap/dangnhap.php");
@@ -18,7 +18,9 @@ foreach ($dsLo as $row) {
 }
 
 // Tạo mã phiếu tự động
-$conn = (new ketnoi())->connect();
+require_once("../../class/clsconnect.php");
+$ketnoi_instance = new ketnoi();
+$conn = $ketnoi_instance->connect();
 $ngayHomNay = date('Ymd');
 $sqlMax = "SELECT maPNK FROM phieunhapkho WHERE maPNK LIKE 'PNK$ngayHomNay%' ORDER BY maPNK DESC LIMIT 1";
 $maPhieuMoi = "PNK$ngayHomNay-001";
@@ -83,7 +85,7 @@ $conn->close();
 
             <div class="card border-success">
                 <div class="card-header bg-success text-white">
-                    <h5 class="mb-0">PHIẾU NHẬP KHO (SẴN SÀNG XÁC NHẬN)</h5>
+                    <h5 class="mb-0">PHIẾU NHẬP KHO </h5>
                 </div>
                 <div class="card-body">
                     <div class="row g-3 mb-3">
