@@ -1,6 +1,6 @@
 <?php
-// BẢO ĐẢM RẰNG CÁC FILE INCLUDE TỒN TẠI VÀ CHÍNH XÁC ĐƯỜNG DẪN
-session_start(); // CHỈ MỘT session_start() Ở ĐẦU FILE
+
+session_start(); 
 
 include_once('../../layout/giaodien/pkh.php');
 include_once('../../class/clskehoachsx.php');
@@ -68,7 +68,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'save_plan') {
             }
 
             if ($count_success > 0) {
-                $model->updateTrangThaiDonHang($maDH, 'Đã lập Kế hoạch Lô');
+                $model->updateTrangThaiDonHang($maDH, 'Chờ xử lý');
                 echo "<script>
                     alert('✅ Lưu thành công {$count_success} lô sản xuất thuộc KHSX mã {$maKHSX}!');
                     window.location.href = window.location.pathname + '?chonDH=' + '{$maDH}';

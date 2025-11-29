@@ -171,7 +171,7 @@ class KeHoachModel extends ketnoi {
         $phuongAn_safe = $link->real_escape_string($phuongAn);
         $maLo_safe = $link->real_escape_string($maLo); 
         
-        $soLuong1SP_safe = (float)$soLuong1SP;
+        $soLuong1SP_safe = (string)$soLuong1SP;
         $tongSLCan_safe = (float)$tongSLCan;
         $slTonTaiKho_safe = (float)$slTonTaiKho;
         $slThieuHut_safe = (float)$slThieuHut;
@@ -182,7 +182,7 @@ class KeHoachModel extends ketnoi {
                     '$maKHSX_safe',
                     '$maSP_safe',
                     '$maNL_safe',
-                    $soLuong1SP_safe,
+                    '$soLuong1SP_safe',
                     $tongSLCan_safe,
                     $slTonTaiKho_safe,
                     $slThieuHut_safe,
@@ -198,13 +198,12 @@ class KeHoachModel extends ketnoi {
     public function insertLoSanPham($maLo, $maKHSX, $maSP, $ngaySX, $soLuong) {
         $link = $this->connect();
         $maLo_safe = $link->real_escape_string($maLo);
-        $maKHSX_safe = $link->real_escape_string($maKHSX);
+        //$maKHSX_safe = $link->real_escape_string($maKHSX);
         $maSP_safe = $link->real_escape_string($maSP);
-        $ngaySX_safe = $link->real_escape_string($ngaySX);
         $soLuong_safe = (int)$soLuong;
 
-        $sql = "INSERT INTO losanpham (maLo, maKHSX, maSP, ngaySX, soLuong, trangThai )
-                VALUES ('$maLo_safe', '$maKHSX_safe', '$maSP_safe', '$ngaySX_safe',$soLuong_safe, N'Đang xử lý')";
+        $sql = "INSERT INTO losanpham (maLo, maSP, ngaySX, soLuong, trangThai )
+                VALUES ('$maLo_safe', '$maSP_safe', '$ngaySX',$soLuong_safe, N'Đang xử lý')";
 
         $res = $this->xuly($link, $sql);
         $link->close();
@@ -285,7 +284,7 @@ class KeHoachModel extends ketnoi {
     /**
      * ✅ Lấy chi tiết kế hoạch sản xuất theo mã kế hoạch
      */
-    public function getChiTietKeHoach($maKHSX) {
+    /*public function getChiTietKeHoach($maKHSX) {
         $link = $this->connect();
         $maKHSX_safe = mysqli_real_escape_string($link, $maKHSX);
 
@@ -313,7 +312,7 @@ class KeHoachModel extends ketnoi {
 
             // Lấy nguyên liệu cho kế hoạch
             $sqlNL = "SELECT nlct.maKHSX, nlct.maSP, nlct.maNL, nl.tenNL, nl.donViTinh,
-                             nlct.soLuong1SP, nlct.tongSLCan, nlct.slTonTaiKho, nlct.slThieuHut, nlct.phuongAnXuLy
+                             nlct.soLuong1SP, nlct.tongSLCan, nlct.slTonTaiKho, nlct.slThieuHut, nlct.phuongAnXuLy, nlct.maLo
                       FROM CHITIET_KHSX nlct
                       LEFT JOIN NGUYENLIEU nl ON nlct.maNL = nl.maNL
                       WHERE nlct.maKHSX='$maKHSX_safe'";
@@ -332,7 +331,7 @@ class KeHoachModel extends ketnoi {
             'sanpham'    => $dsSP,
             'nguyenlieu' => $dsNL
         );
-    }
+    }*/
 
     /**
      * ✅ Cập nhật trạng thái kế hoạch sản xuất
@@ -483,5 +482,75 @@ class KeHoachModel extends ketnoi {
             array('Thang' => 9, 'HieuSuat' => 89),
         );
     }
+
+    public function getLoSanPhamTheoKHSXVaSP($maKHSX, $maSP) {
+    $link = $this->connect();
+    $maKHSX_safe = $link->real_escape_string($maKHSX);
+    $maSP_safe = $link->real_escape_string($maSP);
+    
+    // Lấy các lô sản phẩm từ CHITIET_KHSX (vì bảng losanpham không có maKHSX)
+    $sql = "SELECT DISTINCT nlct.maLo, lp.ngaySX, lp.soLuong, lp.trangThai
+            FROM CHITIET_KHSX nlct
+            LEFT JOIN losanpham lp ON nlct.maLo = lp.maLo
+            WHERE nlct.maKHSX = '$maKHSX_safe' 
+            AND nlct.maSP = '$maSP_safe'
+            ORDER BY nlct.maLo";
+    
+    $data = $this->laydulieu($link, $sql);
+    $link->close();
+    
+    return is_array($data) ? $data : array();
+}
+
+public function getChiTietKeHoach($maKHSX) {
+    $link = $this->connect();
+    $maKHSX_safe = mysqli_real_escape_string($link, $maKHSX);
+
+    // Lấy thông tin kế hoạch
+    $sqlKH = "SELECT * FROM KEHOACHSANXUAT WHERE maKHSX='$maKHSX_safe'";
+    $resKH = mysqli_query($link, $sqlKH);
+    $info = ($resKH && mysqli_num_rows($resKH) > 0) ? mysqli_fetch_assoc($resKH) : array();
+
+    $dsSP = array();
+    $dsNL = array();
+
+    if (!empty($info)) {
+        // Lấy sản phẩm trong đơn hàng
+        $sqlSP = "SELECT cdh.maSP, s.tenSP, s.donViTinh, cdh.soLuong
+                  FROM CHITIET_DONHANG cdh
+                  JOIN SANPHAM s ON cdh.maSP = s.maSP
+                  WHERE cdh.maDH='" . mysqli_real_escape_string($link, $info['maDH']) . "'";
+        $resSP = mysqli_query($link, $sqlSP);
+        if ($resSP) {
+            while ($r = mysqli_fetch_assoc($resSP)) {
+                $dsSP[] = $r;
+            }
+            mysqli_free_result($resSP);
+        }
+
+        // Lấy nguyên liệu cho kế hoạch - THÊM maLo vào SELECT
+        $sqlNL = "SELECT nlct.maKHSX, nlct.maSP, nlct.maNL, nl.tenNL, nl.donViTinh,
+                         nlct.soLuong1SP, nlct.tongSLCan, nlct.slTonTaiKho, nlct.slThieuHut, 
+                         nlct.phuongAnXuLy, nlct.maLo
+                  FROM CHITIET_KHSX nlct
+                  LEFT JOIN NGUYENLIEU nl ON nlct.maNL = nl.maNL
+                  WHERE nlct.maKHSX='$maKHSX_safe'";
+        $resNL = mysqli_query($link, $sqlNL);
+        if ($resNL) {
+            while ($r = mysqli_fetch_assoc($resNL)) {
+                $dsNL[] = $r;
+            }
+            mysqli_free_result($resNL);
+        }
+    }
+
+    mysqli_close($link);
+    return array(
+        'thongtin'   => $info,
+        'sanpham'    => $dsSP,
+        'nguyenlieu' => $dsNL
+    );
+}
+    
 }
 ?>

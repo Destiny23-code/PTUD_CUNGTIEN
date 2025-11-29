@@ -30,7 +30,7 @@ $p->checkPagePermission('4');
         $link_bc_chat_luong         = $base_path . '/pages/khotp/bccl.php';     // Báo cáo chất lượng
         $link_nhap_kho              = $base_path . '/pages/khotp/nhapkho.php';  // Nhập kho thành phẩm
         $link_xuat_kho              = $base_path . '/pages/khotp/xuatkho.php';  // Xuất kho thành phẩm
-        $link_thong_ke_ton_kho      = $base_path . '/pages/khotp/thongke.php';     // Thống kê tồn kho
+        $link_thong_ke_ton_kho      = $base_path . '/pages/khotp/tktk.php';     // Thống kê tồn kho
         $link_canh_bao              = $base_path . '/pages/khotp/canhbao.php';  // Cảnh báo
 
         // Lưu ý: Thay đổi tên file (.php) nếu cần thiết để khớp với cấu trúc thư mục thực tế của bạn
