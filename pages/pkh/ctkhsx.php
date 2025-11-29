@@ -42,7 +42,7 @@ if (!$donhang_chitiet) {
 
 <div class="content">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5 class="fw-bold text-primary"><i class="bi bi-clipboard-data me-2"></i>Chi tiết Kế hoạch Sản Xuất</h5>
+        <h5 class="fw-bold text-primary"><i class="bi bi-clipboard-data me-2"></i>Chi tiết kế hoạch sản xuất</h5>
         <a href="dskh.php" class="btn btn-back"><i class="bi bi-arrow-left"></i> Quay lại</a>
     </div>
 
@@ -65,65 +65,85 @@ if (!$donhang_chitiet) {
         </div>
     </div>
 
-    <!-- Thông tin sản phẩm -->
-    <div class="card mb-4" style =" border-radius: 12px;border: none;box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);">
+    <!-- ========================= -->
+    <!-- THÔNG TIN SẢN XUẤT THEO TỪNG SẢN PHẨM -->
+    <!-- ========================= -->
+    <div class="card mb-4" style="border-radius: 12px;border: none;box-shadow:0 2px 6px rgba(0,0,0,0.08);">
         <div class="card-body">
-            <div class="text-primary fw-semibold mb-2"><i class="bi bi-gear me-2"></i>Thông tin sản xuất</div>
+            <div class="text-primary fw-semibold mb-3">
+                <i class="bi bi-gear me-2"></i>Thông tin sản xuất theo từng sản phẩm
+            </div>
+
             <?php if (!empty($sanpham_chitiet)) { ?>
-                <div class="row">
-                    <?php foreach($sanpham_chitiet as $sp) { ?>
-                        <div class="col-md-3 mb-2"><strong>Sản phẩm:</strong> <?php echo htmlspecialchars($sp['tenSP']); ?></div>
-                        <div class="col-md-3 mb-2"><strong>Số lượng:</strong> <?php echo htmlspecialchars($sp['soLuong']); ?></div>   
-                    <?php } ?>
-                </div>
-            <?php } 
-            else { ?>
+
+                <?php foreach ($sanpham_chitiet as $sp) { ?>
+                    
+                    <div class="p-3 mb-3 border rounded bg-light">
+                        <h6 class="fw-bold text-success mb-2">
+                            <i class="bi bi-cube me-1"></i>
+                            Sản phẩm: <?php echo htmlspecialchars($sp['tenSP']) ?>
+                        </h6>
+
+                        <div class="row mb-2">
+                            <div class="col-md-3"><strong>Mã sản phẩm:</strong> <?php echo htmlspecialchars($sp['maSP']) ?></div>
+                            <div class="col-md-3"><strong>Số lượng:</strong> <?php echo htmlspecialchars($sp['soLuong']) ?></div>
+                            <div class="col-md-3"><strong>Mã lô:</strong> <?php echo htmlspecialchars($sp['maLo']) ?></div>
+                        </div>
+
+                        <!-- NGUYÊN LIỆU THEO TỪNG SẢN PHẨM -->
+                        <div class="mt-3">
+                            <h6 class="text-primary fw-bold mb-2"><i class="bi bi-box-seam me-2"></i>Nguyên liệu sử dụng</h6>
+
+                            <?php if (!empty($nguyenlieu_theo_sp[$sp['maSP']])) { ?>
+                                
+                                <table class="table table-bordered table-hover align-middle mb-0 text-center">
+                                    <thead class="table-primary text-center">
+                                        <tr>
+                                            <th>#</th>
+                                            <th style="width:8%">Mã NL</th>
+                                            <th>Tên nguyên liệu</th>
+                                            <th>Đơn vị</th>
+                                            <th>SL/1 SP</th>
+                                            <th>Tổng SL cần</th>
+                                            <th>Tồn kho</th>
+                                            <th>Thiếu hụt</th>
+                                            <th>Phương án xử lý</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php 
+                                        $i=1;
+                                        foreach ($nguyenlieu_theo_sp[$sp['maSP']] as $nl) { ?>
+                                            <tr>
+                                                <td><?php $i++ ?></td>
+                                                <td><?php echo htmlspecialchars($nl['maNL']) ?></td>
+                                                <td><?php echo htmlspecialchars($nl['tenNL']) ?></td>
+                                                <td><?php echo htmlspecialchars($nl['donViTinh']) ?></td>
+                                                <td><?php echo htmlspecialchars($nl['soLuong1SP']) ?></td>
+                                                <td class="bg-warning-subtle"><?php echo htmlspecialchars($nl['tongSLCan']) ?></td>
+                                                <td><?php echo htmlspecialchars($nl['slTonTaiKho']) ?></td>
+                                                <td class="<?php ($nl['slThieuHut'] > 0 ? 'text-danger fw-bold' : '') ?>">
+                                                    <?php echo htmlspecialchars($nl['slThieuHut']) ?>
+                                                </td>
+                                                <td><?php echo htmlspecialchars($nl['phuongAnXuLy']) ?></td>
+                                            </tr>
+                                        <?php } ?>
+                                    </tbody>
+                                </table>
+
+                            <?php } else { ?>
+                                <p class="text-muted">Không có nguyên liệu cho sản phẩm này.</p>
+                            <?php } ?>
+                        </div>
+
+                    </div>
+
+                <?php } ?>
+
+            <?php } else { ?>
                 <p class="text-muted">Chưa có sản phẩm cho kế hoạch này.</p>
             <?php } ?>
-        </div>
-    </div>
 
-    <!-- Nguyên liệu -->
-    <div class="card" style =" border-radius: 12px;border: none;box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);">
-        <div class="card-body">
-            <div class="text-primary fw-semibold mb-2"><i class="bi bi-box-seam me-2"></i>Nguyên liệu sử dụng</div>
-            <table class="table table-bordered table-hover align-middle mb-0 text-center">
-                <thead class="table-primary text-center">
-                    <tr>
-                        <th>#</th>
-                        <th style="width:8%">Mã NL</th>
-                        <th>Tên nguyên liệu</th>
-                        <th>Đơn vị</th>
-                        <th>Số lượng/1 SP</th>
-                        <th>Tổng SL cần</th>
-                        <th>Tồn kho</th>
-                        <th>Thiếu hụt</th>
-                        <th>Phương án xử lý</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (!empty($nguyenlieu_chitiet)) {
-                        $i=1;
-                        foreach($nguyenlieu_chitiet as $nl) { ?>
-                            <tr>
-                                <td><?php echo $i++; ?></td>
-                                <td><?php echo htmlspecialchars($nl['maNL']); ?></td>
-                                <td><?php echo htmlspecialchars($nl['tenNL']); ?></td>
-                                <td><?php echo htmlspecialchars($nl['donViTinh']); ?></td>
-                                <td><?php echo htmlspecialchars($nl['soLuong1SP']); ?></td>
-                                <td class="bg-warning-subtle"><?php echo htmlspecialchars($nl['tongSLCan']); ?></td>
-                                <td><?php echo htmlspecialchars($nl['slTonTaiKho']); ?></td>
-                                <td class="<?php echo ($nl['slThieuHut'] > 0 ? 'text-danger fw-bold' : ''); ?>">
-                                    <?php echo htmlspecialchars($nl['slThieuHut']); ?>
-                                </td>
-                                <td><?php echo htmlspecialchars($nl['phuongAnXuLy']); ?></td>
-                            </tr>
-                        <?php }
-                    } else { ?>
-                        <tr><td colspan="9" class="text-muted">Chưa có nguyên liệu cho kế hoạch này.</td></tr>
-                    <?php } ?>
-                </tbody>
-            </table>
         </div>
     </div>
 </div>

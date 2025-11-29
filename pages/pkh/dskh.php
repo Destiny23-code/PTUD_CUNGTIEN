@@ -39,7 +39,7 @@ $data_kehoach = $kehoachModel->getDSKeHoach($maKH, $ngayLap, $trangThai);
           <select name="trangThai" class="form-select form-select-sm rounded-pill px-3">
             <option value="">-- Tất cả --</option>
             <?php
-            $trangThaiOptions = array('Hoàn thành','Đã duyệt','Đang thực hiện','Trễ hạn','Từ chối');
+            $trangThaiOptions = array('Chờ phê duyệt', 'Hoàn thành','Đã duyệt','Đang thực hiện','Trễ hạn','Từ chối');
             foreach($trangThaiOptions as $option) {
                 $selected = ($trangThai == $option) ? 'selected' : '';
                 echo "<option value=\"{$option}\" {$selected}>{$option}</option>";
@@ -87,6 +87,7 @@ $data_kehoach = $kehoachModel->getDSKeHoach($maKH, $ngayLap, $trangThai);
 
               // Mảng badge trạng thái
              $badgeColors = array(
+                'chờ phê duyệt' => array('bg'=>'#cfe2ff','color'=>'#055160','icon'=>'clock','text'=>'Chờ phê duyệt'),
                 'hoàn thành' => array('bg'=>'#d4edda','color'=>'#155724','icon'=>'check-circle','text'=>'Hoàn thành'),
                 'đã duyệt' => array('bg'=>'#d4edda','color'=>'#155724','icon'=>'check-circle','text'=>'Đã duyệt'),
                 'đang thực hiện' => array('bg'=>'#fff3cd','color'=>'#856404','icon'=>'hourglass-split','text'=>'Đang thực hiện'),

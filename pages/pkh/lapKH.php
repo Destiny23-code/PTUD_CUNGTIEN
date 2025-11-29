@@ -1,45 +1,124 @@
 <?php
 // BẢO ĐẢM RẰNG CÁC FILE INCLUDE TỒN TẠI VÀ CHÍNH XÁC ĐƯỜNG DẪN
+session_start(); // CHỈ MỘT session_start() Ở ĐẦU FILE
+
 include_once('../../layout/giaodien/pkh.php');
 include_once('../../class/clskehoachsx.php');
 
-session_start();
-
 $model = new KeHoachModel();
 
-// === XỬ LÝ ĐẦU VÀO FORM (QUAN TRỌNG) ===
+// === XỬ LÝ LƯU KẾ HOẠCH ===
+if (isset($_POST['action']) && $_POST['action'] === 'save_plan') {
+    $maDH = $_POST['chonDH'];
+    $maSP_lapKH = isset($_POST['chonSP']) ? $_POST['chonSP'] : '';
+    $nguoiLap = $_SESSION['hoTen'];
+    $ngayLap = date('Y-m-d');
+    $ngayBatDau = $_POST['ngayBatDau'];
+    $ngayKetThuc = $_POST['ngayKetThuc']; 
+    $ghiChu = $_POST['ghiChu'];
 
-// 1. Lấy đơn hàng được chọn
-$maDH_chon = isset($_POST['chonDH']) ? $_POST['chonDH'] : '';
+    $loSanPhamData = isset($_POST['loSanPham']) ? $_POST['loSanPham'] : array();
+    $phuongAnNLData = isset($_POST['phuongAnNL']) ? $_POST['phuongAnNL'] : array();
+
+    if (empty($maSP_lapKH) || empty($loSanPhamData)) {
+        echo "<script>alert('❌ Vui lòng chọn sản phẩm và đảm bảo có lô sản xuất để lập kế hoạch!');</script>";
+    } else {
+        // Tạo kế hoạch chung
+        $ghiChuKH = $ghiChu . " Kế hoạch chung cho SP: $maSP_lapKH, ĐH: $maDH";
+        $maKHSX = $model->insertKeHoachSX($maDH, $nguoiLap, $ngayLap, $ngayBatDau, $ngayKetThuc, $ghiChuKH);
+
+        if ($maKHSX) {
+            $count_success = 0;
+
+            foreach ($loSanPhamData as $maLo => $loInfo) {
+                $maSP = $maSP_lapKH;
+                $soLuongLo = (int)$loInfo['soLuong'];
+
+                // Dùng mã lô đã sinh từ phanLoTuDong
+                $insertLotOK = $model->insertLoSanPham($maLo, $maKHSX, $maSP, $ngayBatDau, $soLuongLo);
+                if (!$insertLotOK) {
+                    error_log("Lỗi insert lô: $maLo");
+                    continue;
+                }
+
+                $danhsach_nl = $model->getNguyenLieuTheoSanPham($maSP);
+                $success_lot = true;
+
+                foreach ($danhsach_nl as $nl) {
+                    $maNL = $nl['maNL'];
+                    $soLuong1SP = $nl['soLuongTheoSP'];
+                    $tongSLCan = $soLuong1SP * $soLuongLo;
+                    $slTonTaiKho = (float)$nl['soLuongTon'];
+                    $slThieuHut = max(0, $tongSLCan - $slTonTaiKho);
+
+                    $phuongAn = isset($phuongAnNLData[$maLo][$maNL]) ? $phuongAnNLData[$maLo][$maNL] : 'co_san';
+
+                    $result = $model->insertChiTietNguyenLieuKHSX(
+                        $maKHSX, $maSP, $maNL, $soLuong1SP, $tongSLCan, $slTonTaiKho, $slThieuHut, $phuongAn, $maLo
+                    );
+
+                    if (!$result) {
+                        $success_lot = false;
+                        error_log("Lỗi insert chi tiết NL: KHSX=$maKHSX, Mã NL=$maNL, Lô=$maLo");
+                        break;
+                    }
+                }
+
+                if ($success_lot) $count_success++;
+            }
+
+            if ($count_success > 0) {
+                $model->updateTrangThaiDonHang($maDH, 'Đã lập Kế hoạch Lô');
+                echo "<script>
+                    alert('✅ Lưu thành công {$count_success} lô sản xuất thuộc KHSX mã {$maKHSX}!');
+                    window.location.href = window.location.pathname + '?chonDH=' + '{$maDH}';
+                </script>";
+            } else {
+                echo "<script>alert('❌ Lưu chi tiết nguyên liệu thất bại! Đã tạo KHSX mã {$maKHSX} nhưng không có lô nào được lưu.');</script>";
+            }
+        } else {
+            echo "<script>alert('❌ Lưu kế hoạch thất bại! Lỗi kết nối CSDL hoặc dữ liệu.');</script>";
+        }
+    }
+}
+
+// === XỬ LÝ ĐẦU VÀO FORM (SAU KHI XỬ LÝ POST) ===
+
+// 1. Lấy đơn hàng được chọn (ưu tiên từ POST, sau đó từ GET)
+$maDH_chon = isset($_POST['chonDH']) ? $_POST['chonDH'] : (isset($_GET['chonDH']) ? $_GET['chonDH'] : '');
 
 // 2. Lấy sản phẩm được chọn (Dùng để lọc và hiển thị lô)
 $maSP_chon = isset($_POST['chonSP']) ? $_POST['chonSP'] : '';
 
 /**
- * Hàm phân lô tự động: Chia đôi số lượng sản phẩm nếu >= 2500, lặp lại cho đến khi mọi lô < 2500.
- * @return array Mảng chứa danh sách các Lô đã chia.
+ * Hàm phân lô tự động: Chia đôi số lượng sản phẩm nếu > 2500,
+ * lặp lại cho đến khi mọi lô < 2500.
+ * @return array Danh sách các lô sau khi chia.
  */
-function phanLoTuDong($maSP, $tenSP, $loaiSP, $donViTinh, $soLuongGoc, $moTa, $dinhMucNL) {
+function phanLoTuDong($maSP, $tenSP, $loaiSP, $donViTinh, $soLuongGoc, $moTa, $dinhMucNL, $maKHSX = '000') {
     $lots = array();
-    // Khởi tạo hàng đợi với lô gốc
     $temp_queue = array(array('soLuong' => $soLuongGoc)); 
     $lotIndex = 1;
 
-    // Lặp để chia nhỏ lô
+    // Lặp chia nhỏ lô
     while (!empty($temp_queue)) {
         $current = array_shift($temp_queue);
         $soLuong = $current['soLuong'];
 
-        if ($soLuong >= 2500) {
+        if ($soLuong > 2500) {
             // Chia đôi lô
             $lo1 = floor($soLuong / 2);
             $lo2 = $soLuong - $lo1;
 
-            // Đưa hai lô mới vào hàng đợi để kiểm tra tiếp
+            // Cho 2 lô vào hàng đợi
             $temp_queue[] = array('soLuong' => $lo1);
             $temp_queue[] = array('soLuong' => $lo2);
+
         } else if ($soLuong > 0) {
-            // Số lượng đạt yêu cầu (< 2500), thêm vào danh sách lô cuối cùng
+            // Tạo mã lô
+            $maLo = date('ymdhis') . rand(100, 999);
+
+            // Lưu lô
             $lots[] = array(
                 'maSP' => $maSP,
                 'tenSP' => $tenSP,
@@ -47,14 +126,16 @@ function phanLoTuDong($maSP, $tenSP, $loaiSP, $donViTinh, $soLuongGoc, $moTa, $d
                 'donViTinh' => $donViTinh,
                 'soLuong' => (int)$soLuong,
                 'moTa' => $moTa,
-                'maLo' => $maSP . '-' . str_pad($lotIndex++, 3, '0', STR_PAD_LEFT), // Gán Mã Lô duy nhất
-                'nguyenLieuDinhMuc' => $dinhMucNL // Định mức NL cho SP này
+                'maLo' => $maLo,
+                'nguyenLieuDinhMuc' => $dinhMucNL
             );
+
+            $lotIndex++;
         }
     }
+
     return $lots;
 }
-
 
 // Lấy danh sách đơn hàng chờ
 $danhsach_dh = $model->getDSDonHangCho();
@@ -79,10 +160,10 @@ if ($maDH_chon != '') {
                 if ($soLuongGoc > 0) {
                     $dinhMucNL = $model->getNguyenLieuTheoSanPham($sp['maSP']); 
 
-                    // Thực hiện phân lô cho sản phẩm được chọn duy nhất
+                    // Sửa: Thêm tham số maKHSX mặc định
                     $danhsach_lo_san_xuat = phanLoTuDong(
                         $sp['maSP'], $sp['tenSP'], $sp['loaiSP'], $sp['donViTinh'], 
-                        $soLuongGoc, $sp['moTa'], $dinhMucNL
+                        $soLuongGoc, $sp['moTa'], $dinhMucNL, '000'
                     );
                 }
                 break;
@@ -257,20 +338,13 @@ if ($maDH_chon != '') {
                 </div>
 
                 <div class="row">
-                    <!--<div class="col-md-4">
-                        <label class="form-label fw-semibold">Hình thức sản xuất</label>
-                        <select class="form-select" name="hinhThucSX">
-                            <option value="Theo đơn hàng">Theo đơn hàng</option>
-                            <option value="Theo lô">Theo lô</option>
-                        </select>
-                    </div>-->
                     <div class="col-md-4">
                         <label class="form-label fw-semibold">Ngày bắt đầu</label>
-                        <input type="date" class="form-control" name="ngayBatDau">
+                        <input type="date" class="form-control" name="ngayBatDau" required>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label fw-semibold">Ngày kết thúc</label>
-                        <input type="date" class="form-control" name="ngayKetThuc">
+                        <input type="date" class="form-control" name="ngayKetThuc" required>
                     </div>
                 </div>
 
@@ -322,20 +396,20 @@ if ($maDH_chon != '') {
 
                 <?php
                 if (is_array($danhsach_lo_san_xuat) && count($danhsach_lo_san_xuat) > 0) {
-                    $lo_index = 1;
-                    foreach ($danhsach_lo_san_xuat as $lo) :
+                    foreach ($danhsach_lo_san_xuat as $index => $lo) :
                         $soLuongLo = $lo['soLuong'];
                         $maLo = $lo['maLo'];
                 ?>
 
                 <div class="card mb-3 border-primary">
                     <div class="card-header bg-primary-subtle fw-bold text-dark">
-                        <i class="bi bi-box-fill me-2"></i> LÔ SẢN XUẤT #<?php echo $lo_index++; ?> | Mã Lô: <span class="text-danger"><?php echo htmlspecialchars($maLo); ?></span>
+                        <i class="bi bi-box-fill me-2"></i> LÔ SẢN XUẤT #<?php echo ($index + 1); ?> | Mã Lô: <span class="text-danger"><?php echo htmlspecialchars($maLo); ?></span>
                         | Sản phẩm: <?php echo htmlspecialchars($lo['tenSP']); ?> (Mã: <?php echo htmlspecialchars($lo['maSP']); ?>)
                         | Số lượng Lô: <span class="fw-bolder"><?php echo number_format($soLuongLo, 0, ',', '.'); ?></span> <?php echo htmlspecialchars($lo['donViTinh']); ?>
                         
-                        <input type="hidden" name="loSanPham[<?php echo $maLo; ?>][maSP]" value="<?php echo htmlspecialchars($lo['maSP']); ?>">
-                        <input type="hidden" name="loSanPham[<?php echo $maLo; ?>][soLuong]" value="<?php echo htmlspecialchars($soLuongLo); ?>">
+                        <!-- ✅ SỬA: Dùng $maLo làm key -->
+                        <input type="hidden" name="loSanPham[<?php echo htmlspecialchars($maLo); ?>][maSP]" value="<?php echo htmlspecialchars($lo['maSP']); ?>">
+                        <input type="hidden" name="loSanPham[<?php echo htmlspecialchars($maLo); ?>][soLuong]" value="<?php echo htmlspecialchars($soLuongLo); ?>">
                     </div>
                     
                     <div class="card-body p-0">
@@ -350,7 +424,7 @@ if ($maDH_chon != '') {
                                     <th>Tổng SL cần cho Lô</th>
                                     <th>Số lượng tồn</th>
                                     <th>Thiếu hụt</th>
-                                    <th>Phương án xử lý</th> 
+                                    <th>Phương án xử lý</th>
                                 </tr>
                             </thead>
                             <tbody class="text-center">
@@ -361,7 +435,7 @@ if ($maDH_chon != '') {
                                         $tongSLNL = $nl['soLuongTheoSP'] * $soLuongLo;
                                         $soLuongTon = (float)($nl['soLuongTon']);
                                         $thieuHut = max(0, $tongSLNL - $soLuongTon);
-        
+    
                                         echo '<tr>';
                                         echo '<td>' . htmlspecialchars($nl['maNL']) . '</td>';
                                         echo '<td>' . htmlspecialchars($nl['tenNL']) . '</td>';
@@ -371,12 +445,12 @@ if ($maDH_chon != '') {
                                         echo '<td>' . $soLuongTon . '</td>';
                                         echo '<td class="' . ($thieuHut > 0 ? 'text-danger fw-bold' : '') . '">' . $thieuHut . '</td>';
                                         echo '<td>
-                                                <select class="form-select form-select-sm" name="phuongAnNL[' . $maLo . '][' . $nl['maNL'] . ']">
+                                                <select class="form-select form-select-sm" name="phuongAnNL[' . htmlspecialchars($maLo) . '][' . htmlspecialchars($nl['maNL']) . ']">
                                                     <option value="co_san">Đủ (Có sẵn)</option>
                                                     <option value="mua_moi"' . ($thieuHut > 0 ? ' selected' : '') . '>Mua bổ sung</option>
                                                     <option value="dieu_chuyen">Điều chuyển kho</option>
                                                 </select>
-                                            </td>';
+                                              </td>';
                                         echo '</tr>';
                                     }
                                 } else {
@@ -400,7 +474,8 @@ if ($maDH_chon != '') {
                     <textarea class="form-control" name="ghiChu" rows="3" placeholder="Nhập ghi chú..."></textarea>
                 </div>
 
-                <div class="d-flex justify-content-end mt-4">
+        
+                <div class="d-flex justify-content-end mt-3">
                     <button type="reset" class="btn btn-secondary me-2">Làm mới</button>
                     <button type="submit" name="action" value="save_plan" class="btn btn-success">Lưu kế hoạch</button>
                 </div>
@@ -417,69 +492,3 @@ if ($maDH_chon != '') {
 </div>
 
 <?php include_once("../../layout/footer.php"); ?>
-
-<?php
-// XỬ LÝ LƯU KẾ HOẠCH (DÙNG POST)
-session_start();
-if (isset($_POST['action']) && $_POST['action'] === 'save_plan') {
-    $maDH = $_POST['chonDH'];
-    $nguoiLap = $_SESSION['hoTen'];
-    $ngayLap = date('Y-m-d');
-    $ngayBatDau = $_POST['ngayBatDau'];
-    $ngayKetThuc = $_POST['ngayKetThuc'];
-    $ghiChuGoc = $_POST['ghiChu'];
-    // Đảm bảo sử dụng array()
-    $loSanPhamData = isset($_POST['loSanPham']) ? $_POST['loSanPham'] : array();
-    $phuongAnNLData = isset($_POST['phuongAnNL']) ? $_POST['phuongAnNL'] : array();
-
-    if (empty($loSanPhamData)) {
-         echo "<script>alert('❌ Không có lô sản xuất nào được tạo để lưu!');</script>";
-         exit;
-    }
-    
-    $count_success = 0;
-    // Cần khởi tạo lại Model vì session_start() sau HTML có thể đã bị mất kết nối cũ
-    $model = new KeHoachModel(); 
-
-    // Lặp qua từng LÔ SẢN XUẤT đã được gửi lên từ form (chỉ các lô của sản phẩm đã chọn)
-    foreach ($loSanPhamData as $maLo => $loInfo) {
-        $maSP = $loInfo['maSP'];
-        $soLuongLo = (int)$loInfo['soLuong'];
-        
-        $ghiChuLo = $ghiChuGoc . " (Lô: $maLo - SP: $maSP, SL: $soLuongLo)";
-
-        // 1. TẠO BẢN GHI KẾ HOẠCH MỚI CHO TỪNG LÔ
-        // Mã KHSX (maKHSX) sẽ đóng vai trò là Mã Lô/Lệnh sản xuất
-        $maKHSX = $model->insertKeHoachSX($maDH, $nguoiLap, $ngayLap, $ngayBatDau, $ngayKetThuc, $ghiChuLo); 
-
-        if ($maKHSX) {
-            $count_success++;
-            // Lấy định mức nguyên liệu cho sản phẩm này
-            $danhsach_nl = $model->getNguyenLieuTheoSanPham($maSP); 
-
-            // 2. LƯU CHI TIẾT NGUYÊN LIỆU CHO LÔ MỚI
-            foreach ($danhsach_nl as $nl) {
-                $maNL = $nl['maNL'];
-                $soLuong1SP = $nl['soLuongTheoSP'];
-                $tongSLCan = $soLuong1SP * $soLuongLo;
-                $slTonTaiKho = $nl['soLuongTon'];
-                $slThieuHut = max(0, $tongSLCan - $slTonTaiKho);
-                
-                // Lấy Phương án xử lý đã chọn cho Lô và Nguyên liệu này
-                $phuongAn = isset($phuongAnNLData[$maLo][$maNL]) ? $phuongAnNLData[$maLo][$maNL] : 'co_san'; 
-
-                $model->insertChiTietNguyenLieuKHSX($maKHSX, $maSP, $maNL, $soLuong1SP, $tongSLCan, $slTonTaiKho, $slThieuHut, $phuongAn);
-            }
-        }
-    }
-    
-    // Cập nhật trạng thái Đơn hàng chỉ 1 lần sau khi xử lý các lô
-    if ($count_success > 0) {
-        $model->updateTrangThaiDonHang($maDH, 'Đã lập Kế hoạch Lô');
-        echo "<script>alert('✅ Lưu thành công {$count_success} Kế hoạch Lô!'); window.location.href=window.location.pathname;</script>";
-        exit;
-    } else {
-        echo "<script>alert('❌ Lưu kế hoạch thất bại! Vui lòng kiểm tra lại kết nối CSDL và dữ liệu đơn hàng.');</script>";
-    }
-}
-?>

@@ -137,10 +137,9 @@ class KeHoachModel extends ketnoi {
         $link = $this->connect();
         $maDH_safe = $link->real_escape_string($maDH);
         $nguoiLap_safe = $link->real_escape_string($nguoiLap);
-        $hinhThucSX_safe = $link->real_escape_string($hinhThucSX);
         $ghiChu_safe = $link->real_escape_string($ghiChu);
 
-        $sql = "INSERT INTO KEHOACHSANXUAT (maDH, nguoiLap, ngayLap, ngayBDDK, ngayKTDDK, trangThai, ghiChu)
+        $sql = "INSERT INTO KEHOACHSANXUAT (maDH, nguoiLap, ngayLap, ngayBDDK, ngayKTDK, trangThai, ghiChu)
                 VALUES (
                     '$maDH_safe', 
                     '$nguoiLap_safe', 
@@ -163,21 +162,22 @@ class KeHoachModel extends ketnoi {
         }
     }
 
-    public function insertChiTietNguyenLieuKHSX($maKHSX, $maSP, $maNL, $soLuong1SP, $tongSLCan, $slTonTaiKho, $slThieuHut, $phuongAn) {
+    public function insertChiTietNguyenLieuKHSX($maKHSX, $maSP, $maNL, $soLuong1SP, $tongSLCan, $slTonTaiKho, $slThieuHut, $phuongAn, $maLo) {
         $link = $this->connect();
 
         $maKHSX_safe = $link->real_escape_string($maKHSX);
         $maSP_safe = $link->real_escape_string($maSP);
         $maNL_safe = $link->real_escape_string($maNL);
         $phuongAn_safe = $link->real_escape_string($phuongAn);
-        $soLuong1SP_safe = $link->real_escape_string($soLuong1SP);
+        $maLo_safe = $link->real_escape_string($maLo); 
         
+        $soLuong1SP_safe = (float)$soLuong1SP;
         $tongSLCan_safe = (float)$tongSLCan;
         $slTonTaiKho_safe = (float)$slTonTaiKho;
         $slThieuHut_safe = (float)$slThieuHut;
 
         $sql = "INSERT INTO CHITIET_KHSX (
-                    maKHSX, maSP, maNL, soLuong1SP, tongSLCan, slTonTaiKho, slThieuHut, phuongAnXuLy
+                    maKHSX, maSP, maNL, soLuong1SP, tongSLCan, slTonTaiKho, slThieuHut, phuongAnXuLy, maLo
                 ) VALUES (
                     '$maKHSX_safe',
                     '$maSP_safe',
@@ -186,7 +186,8 @@ class KeHoachModel extends ketnoi {
                     $tongSLCan_safe,
                     $slTonTaiKho_safe,
                     $slThieuHut_safe,
-                    N'$phuongAn_safe'
+                    '$phuongAn_safe',
+                    '$maLo_safe'
                 )";
 
         $result = $this->xuly($link, $sql);
@@ -194,6 +195,21 @@ class KeHoachModel extends ketnoi {
         return $result;
     }
 
+    public function insertLoSanPham($maLo, $maKHSX, $maSP, $ngaySX, $soLuong) {
+        $link = $this->connect();
+        $maLo_safe = $link->real_escape_string($maLo);
+        $maKHSX_safe = $link->real_escape_string($maKHSX);
+        $maSP_safe = $link->real_escape_string($maSP);
+        $ngaySX_safe = $link->real_escape_string($ngaySX);
+        $soLuong_safe = (int)$soLuong;
+
+        $sql = "INSERT INTO losanpham (maLo, maKHSX, maSP, ngaySX, soLuong, trangThai )
+                VALUES ('$maLo_safe', '$maKHSX_safe', '$maSP_safe', '$ngaySX_safe',$soLuong_safe, N'Đang xử lý')";
+
+        $res = $this->xuly($link, $sql);
+        $link->close();
+        return $res;
+    }
 
     /**
      * Cập nhật trạng thái của Đơn hàng.
@@ -241,10 +257,8 @@ class KeHoachModel extends ketnoi {
         }
         
         // 3️⃣ Xây dựng câu truy vấn SQL
-        $sql = "SELECT maKHSX, maDH, nguoiLap, ngayLap, hinhThuc, ngayBDDK, ngayKTDK, trangThai, ghiChu, lyDoTuChoi
-                FROM KEHOACHSANXUAT
-                {$where}
-                ORDER BY ngayLap DESC";
+        $sql = "SELECT maKHSX, maDH, nguoiLap, ngayLap, ngayBDDK, ngayKTDK, trangThai, ghiChu, lyDoTuChoi
+                FROM KEHOACHSANXUAT";
 
         // 4️⃣ Lấy dữ liệu, đóng kết nối và trả về
         $data = $this->laydulieu($link, $sql);
@@ -258,7 +272,7 @@ class KeHoachModel extends ketnoi {
 
     public function getDanhSachKeHoach() {
         $link = $this->connect();
-        $sql = "SELECT maKHSX, maDH, nguoiLap, ngayLap, hinhThuc, ngayBDDK, ngayKTDK, trangThai, ghiChu, lyDoTuChoi
+        $sql = "SELECT maKHSX, maDH, nguoiLap, ngayLap, ngayBDDK, ngayKTDK, trangThai, ghiChu, lyDoTuChoi
                 FROM KEHOACHSANXUAT
                 ORDER BY ngayLap DESC";
 
@@ -409,66 +423,65 @@ class KeHoachModel extends ketnoi {
     }
 
     public function getPhieuBaoCaoMoiNhat() {
-    $link = $this->connect();
-    
-    $sql = "SELECT p.*, nv.tenNV 
-            FROM PHIEUBAOCAOCHATLUONG p
-            LEFT JOIN NHANVIEN nv ON p.nguoiLap = nv.iduser
-            ORDER BY p.maPKD DESC 
-            LIMIT 1";
-    
-    $data = $this->laydulieu($link, $sql);
-    $link->close();
-    
-    if (is_array($data) && count($data) > 0) {
-        $row = $data[0];
-        if (!empty($row['tenNV'])) {
-            $row['nguoiLap'] = $row['tenNV'];
+        $link = $this->connect();
+        
+        $sql = "SELECT p.*, nv.tenNV 
+                FROM PHIEUBAOCAOCHATLUONG p
+                LEFT JOIN NHANVIEN nv ON p.nguoiLap = nv.iduser
+                ORDER BY p.maPKD DESC 
+                LIMIT 1";
+        
+        $data = $this->laydulieu($link, $sql);
+        $link->close();
+        
+        if (is_array($data) && count($data) > 0) {
+            $row = $data[0];
+            if (!empty($row['tenNV'])) {
+                $row['nguoiLap'] = $row['tenNV'];
+            }
+            return $row;
         }
-        return $row;
+        return null;
     }
-    return null;
-}
-// ---Báo cáo sản lượng---
+    // ---Báo cáo sản lượng---
+    public function thongKeSanLuongTheoLoaiSP() {
+        $link = $this->connect();
+        $sql = "SELECT 
+                    sp.loaiSP, 
+                    SUM(ctdh.soLuong) AS TongSanLuong
+                FROM CHITIET_DONHANG ctdh
+                JOIN SANPHAM sp ON ctdh.maSP = sp.maSP
+                JOIN DONHANG dh ON ctdh.maDH = dh.maDH
+                WHERE dh.trangThai = N'Hoàn thành'
+                GROUP BY sp.loaiSP";
+        $data = $this->laydulieu($link, $sql);
+        $link->close();
+        return is_array($data) ? $data : array();
+    }
 
-public function thongKeSanLuongTheoLoaiSP() {
-    $link = $this->connect();
-    $sql = "SELECT 
-                sp.loaiSP, 
-                SUM(ctdh.soLuong) AS TongSanLuong
-            FROM CHITIET_DONHANG ctdh
-            JOIN SANPHAM sp ON ctdh.maSP = sp.maSP
-            JOIN DONHANG dh ON ctdh.maDH = dh.maDH
-            WHERE dh.trangThai = N'Hoàn thành'
-            GROUP BY sp.loaiSP";
-    $data = $this->laydulieu($link, $sql);
-    $link->close();
-    return is_array($data) ? $data : array();
-}
+    public function getSanLuongTheoThang($year = null) {
+        $currentYear = (!is_null($year) && $year != '') ? $year : date('Y');
+        
+        $link = $this->connect();
+        $sql = "SELECT 
+                    MONTH(ngaySX) AS Thang, 
+                    SUM(soLuong) AS TongSanLuong
+                FROM LOSANPHAM
+                WHERE YEAR(ngaySX) = " . (int)$currentYear . "
+                GROUP BY MONTH(ngaySX)
+                ORDER BY Thang";
+        $data = $this->laydulieu($link, $sql);
+        $link->close();
+        return is_array($data) ? $data : array();
+    }
 
-public function getSanLuongTheoThang($year = null) {
-    $currentYear = (!is_null($year) && $year != '') ? $year : date('Y');
-    
-    $link = $this->connect();
-    $sql = "SELECT 
-                MONTH(ngaySX) AS Thang, 
-                SUM(soLuong) AS TongSanLuong
-            FROM LOSANPHAM
-            WHERE YEAR(ngaySX) = " . (int)$currentYear . "
-            GROUP BY MONTH(ngaySX)
-            ORDER BY Thang";
-    $data = $this->laydulieu($link, $sql);
-    $link->close();
-    return is_array($data) ? $data : array();
-}
-
-public function getHieuSuatLaoDong() {
-    // Chỉ số GIẢ ĐỊNH
-    return array(
-        array('Thang' => 7, 'HieuSuat' => 84),
-        array('Thang' => 8, 'HieuSuat' => 87),
-        array('Thang' => 9, 'HieuSuat' => 89),
-    );
-}
+    public function getHieuSuatLaoDong() {
+        // Chỉ số GIẢ ĐỊNH
+        return array(
+            array('Thang' => 7, 'HieuSuat' => 84),
+            array('Thang' => 8, 'HieuSuat' => 87),
+            array('Thang' => 9, 'HieuSuat' => 89),
+        );
+    }
 }
 ?>
