@@ -1,123 +1,121 @@
 <?php
 session_start();
-require_once("../../class/clsNhapKho.php");
-require_once("../../class/clsconnect.php");
+require_once('../../class/clsconnect.php');
+header('Content-Type: application/json');
 
-// Kiểm tra đăng nhập và dữ liệu gửi lên
-if (!isset($_SESSION['maNV'])) {
-    echo "<script>alert('Vui lòng đăng nhập để thực hiện chức năng này!'); window.location='../../pages/dangnhap/dangnhap.php';</script>";
+// Kiểm tra đăng nhập
+if (!isset($_SESSION['hoTen']) || !isset($_SESSION['maNV'])) {
+    echo json_encode(['status' => 'error', 'message' => 'Chưa đăng nhập hoặc thiếu thông tin']);
     exit;
 }
 
-if (!isset($_POST["dsLo"]) || !is_array($_POST["dsLo"]) || count($_POST["dsLo"]) == 0) {
-    echo "<script>alert('Vui lòng chọn ít nhất một lô sản phẩm!'); history.back();</script>";
+$dsLo     = $_POST['dsLo'] ?? [];
+$ngayNhap = $_POST['ngayLap'] ?? date('Y-m-d');
+
+if (empty($dsLo)) {
+    echo json_encode(['status' => 'error', 'message' => 'Không có lô nào để nhập kho']);
     exit;
 }
 
-// Lấy mã nhân viên từ session thay vì dùng tên
-$nguoiLap = $_SESSION['maNV'];
-$ngayLap = $_POST["ngayLap"];
-$maPhieu = $_POST["maPhieu"];
-$dsLo = $_POST["dsLo"];
+// Lấy thông tin người lập
+$maNguoiLap  = (int)$_SESSION['maNV'];
+$tenNguoiLap = $_SESSION['hoTen']; // Tên đầy đủ để lưu vào DB
 
-if (empty($maPhieu) || empty($ngayLap)) {
-    echo "<script>alert('Vui lòng điền đầy đủ thông tin phiếu nhập!'); history.back();</script>";
-    exit;
-}
+// Kết nối CSDL
+$ketnoi_instance = new ketnoi();
+$conn = $ketnoi_instance->connect();
+$conn->autocommit(false);
 
-$conn = (new ketnoi())->connect();
-if (!$conn) {
-    echo "<script>alert('Lỗi kết nối cơ sở dữ liệu.'); history.back();</script>";
-    exit;
-}
+try {
+    // 1. Tạo phiếu nhập kho (lưu cả mã + tên người lập)
+    $stmt = $conn->prepare("INSERT INTO phieunhapkho 
+        (ngayNhap, nguoiLap, tenNguoiLap, tongSoLuongNhap) 
+        VALUES (?, ?, ?, 0)");
+    $stmt->bind_param("sis", $ngayNhap, $maNguoiLap, $tenNguoiLap);
+    $stmt->execute();
+    $maPNK = $conn->insert_id;
+    $maPhieuHienThi = "PNK" . sprintf("%04d", $maPNK);
 
-// Nếu table chi tiết phiếu nhập kho chưa tồn tại, tạo nó tự động
-$createCTTable = "CREATE TABLE IF NOT EXISTS `chitiet_phieunhapkho` (
-    `maCTPNK` INT NOT NULL AUTO_INCREMENT,
-    `maPNK` INT NOT NULL,
-    `maLo` INT NOT NULL,
-    `soLuongNhap` INT NOT NULL,
-    `ghiChu` VARCHAR(255) DEFAULT NULL,
-    PRIMARY KEY (`maCTPNK`),
-    INDEX (`maPNK`),
-    INDEX (`maLo`),
-    CONSTRAINT `fk_ctpnk_pnk` FOREIGN KEY (`maPNK`) REFERENCES `phieunhapkho`(`maPNK`) ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT `fk_ctpnk_malo` FOREIGN KEY (`maLo`) REFERENCES `losanpham`(`maLo`) ON DELETE RESTRICT ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;";
+    $tongSL = 0;
+    $chiTiet = [];
 
-if (!$conn->query($createCTTable)) {
-    echo "<script>alert('Lỗi tạo bảng chi tiết phiếu nhập kho: " . addslashes($conn->error) . "'); history.back();</script>";
-    exit;
-}
+    foreach ($dsLo as $maLo) {
+        $maLo = (int)$maLo;
 
-// Bắt đầu transaction để đảm bảo tính nhất quán
-$conn->begin_transaction();
+        $q = $conn->query("SELECT l.soLuong, l.maSP, sp.tenSP 
+                           FROM losanpham l 
+                           JOIN sanpham sp ON l.maSP = sp.maSP 
+                           WHERE l.maLo = $maLo LIMIT 1");
+        if (!$q || $q->num_rows == 0) continue;
 
-// Lấy và tính tổng số lượng một lần duy nhất
-$soLuongMap = array(); // lưu số lượng của từng lô
-$tongSL = 0;
+        $lo = $q->fetch_assoc();
+        $sl = (int)$lo['soLuong'];
+        $tongSL += $sl;
 
-// Đọc số lượng của tất cả các lô một lần
-$maLoList = implode(',', array_map('intval', $dsLo));
-$qr = $conn->query("SELECT maLo, soLuong FROM losanpham WHERE maLo IN ($maLoList)");
-if (!$qr) {
-    $conn->rollback();
-    echo "<script>alert('Lỗi truy vấn khi đọc số lượng lô: " . $conn->error . "'); history.back();</script>";
-    exit;
-}
-while ($row = $qr->fetch_assoc()) {
-    $soLuongMap[$row['maLo']] = (int)$row['soLuong'];
-    $tongSL += (int)$row['soLuong'];
-}
+        // Ghi chi tiết nhập kho
+        $conn->query("INSERT INTO chitiet_phieunhapkho (maPNK, maLo, soLuongNhap) 
+                      VALUES ($maPNK, $maLo, $sl)");
 
-// Tạo phiếu nhập kho
-$nguoiLapEsc = $conn->real_escape_string($nguoiLap);
-$ngayLapEsc = $conn->real_escape_string($ngayLap);
-$sqlInsertPN = "INSERT INTO phieunhapkho(ngayNhap, nguoiLap, tongSoLuongNhap) VALUES('$ngayLapEsc', '$nguoiLapEsc', $tongSL)";
-    if (!$conn->query($sqlInsertPN)) {
-    $conn->rollback();
-    echo "<script>alert('Không thể tạo phiếu nhập kho: " . $conn->error . "'); history.back();</script>";
-    exit;
-}
-$maPNK = $conn->insert_id;
+        // Cộng tồn kho
+        $conn->query("UPDATE sanpham SET soLuongTon = soLuongTon + $sl 
+                      WHERE maSP = {$lo['maSP']}");
 
-// Lưu chi tiết từng lô và cập nhật tồn kho sản phẩm
-foreach ($dsLo as $maLoRaw) {
-    $maLo = (int)$maLoRaw;
-    if (!isset($soLuongMap[$maLo])) {
-        $conn->rollback();
-        echo "<script>alert('Lỗi: Không tìm thấy thông tin số lượng của lô " . $maLo . "'); history.back();</script>";
-        exit;
-    }
-    $soLuong = $soLuongMap[$maLo];
-
-    // Thêm chi tiết
-    $sqlCT = "INSERT INTO chitiet_phieunhapkho(maPNK, maLo, soLuongNhap) VALUES($maPNK, $maLo, $soLuong)";
-    if (!$conn->query($sqlCT)) {
-    $conn->rollback();
-    echo "<script>alert('Lỗi khi lưu chi tiết phiếu: " . $conn->error . "'); history.back();</script>";
-        exit;
+        $chiTiet[] = [
+            'maLo'    => $maLo,
+            'maSP'    => $lo['maSP'],
+            'tenSP'   => $lo['tenSP'],
+            'soLuong' => $sl
+        ];
     }
 
-    // Cập nhật tồn kho sản phẩm tương ứng với lô
-    $sqlUpdate = "UPDATE sanpham sp 
-                  JOIN losanpham l ON sp.maSP = l.maSP 
-                  SET sp.soLuongTon = sp.soLuongTon + $soLuong
-                  WHERE l.maLo = $maLo";
-    if (!$conn->query($sqlUpdate)) {
-    $conn->rollback();
-    echo "<script>alert('Lỗi khi cập nhật tồn kho: " . $conn->error . "'); history.back();</script>";
-        exit;
+    // Cập nhật tổng số lượng
+    $conn->query("UPDATE phieunhapkho SET tongSoLuongNhap = $tongSL WHERE maPNK = $maPNK");
+    $conn->commit();
+
+    // === TẠO PHIẾU NHẬP KHO ĐẸP (hiện tên người lập) ===
+    $html = "<div class='text-center mb-4'>
+                <h2 class='text-success fw-bold'>PHIẾU NHẬP KHO $maPhieuHienThi</h2>
+                <p class='fs-5'>
+                    Ngày nhập: <strong>" . date('d/m/Y H:i') . "</strong> | 
+                    Người lập: <strong>$tenNguoiLap</strong>
+                </p>
+             </div>";
+
+    $html .= "<table class='table table-bordered table-hover'>
+                <thead class='table-success text-center'>
+                    <tr>
+                        <th>Mã lô</th>
+                        <th>Mã SP</th>
+                        <th>Tên sản phẩm</th>
+                        <th>Số lượng</th>
+                    </tr>
+                </thead>
+                <tbody>";
+
+    foreach ($chiTiet as $ct) {
+        $html .= "<tr class='text-center align-middle'>
+                    <td class='fw-bold'>{$ct['maLo']}</td>
+                    <td>{$ct['maSP']}</td>
+                    <td>{$ct['tenSP']}</td>
+                    <td class='fw-bold text-primary fs-5'>" . number_format($ct['soLuong']) . "</td>
+                  </tr>";
     }
-}
 
-// Nếu mọi thứ ok, commit
-if (!$conn->commit()) {
-    $conn->rollback();
-    echo "<script>alert('Lỗi khi lưu giao dịch (commit thất bại).'); history.back();</script>";
-    exit;
-}
+    $html .= "<tr class='table-info fw-bold fs-4'>
+                <td colspan='3' class='text-end pe-4'>TỔNG CỘNG:</td>
+                <td class='text-center text-primary'>" . number_format($tongSL) . " sp</td>
+              </tr>
+              </tbody>
+             </table>";
 
-echo "<script>alert('Phiếu nhập kho đã được lập thành công!'); window.location='nhapkho.php';</script>";
-exit;
+    $html .= "<div class='alert alert-success text-center mt-4 fw-bold'>
+                Nhập kho thành công! Các lô đã được nhập vào kho thành phẩm.
+              </div>";
+
+    echo json_encode(['status' => 'success', 'html' => $html]);
+
+} catch (Exception $e) {
+    if (isset($conn)) $conn->rollback();
+    echo json_encode(['status' => 'error', 'message' => 'Lỗi hệ thống: ' . $e->getMessage()]);
+}
 ?>

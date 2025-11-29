@@ -1,213 +1,147 @@
 <?php
-session_start();
+include_once('../../layout/giaodien/khotp.php');
+require_once("../../class/clsNhapKho.php");
 
-// Kiểm tra đăng nhập
 if (!isset($_SESSION['hoTen'])) {
     header("Location: ../../pages/dangnhap/dangnhap.php");
     exit;
 }
 
-require_once("../../class/clsNhapKho.php");
-
 $nk = new nhapkho();
 $dsLo = $nk->layLoNhapDuoc();
+$tongSoLuong = array_sum(array_column($dsLo, 'soLuong'));
+
+// Tạo mã phiếu
+require_once("../../class/clsconnect.php");
+$ketnoi_instance = new ketnoi();
+$conn = $ketnoi_instance->connect();
+$ngayHomNay = date('Ymd');
+$sqlMax = "SELECT maPNK FROM phieunhapkho WHERE maPNK LIKE 'PNK$ngayHomNay%' ORDER BY maPNK DESC LIMIT 1";
+$maPhieuMoi = "PNK$ngayHomNay-001";
+if ($result = $conn->query($sqlMax)) {
+    if ($row = $result->fetch_assoc()) {
+        $soHienTai = (int)substr($row['maPNK'], -3);
+        $soMoi = $soHienTai + 1;
+        $maPhieuMoi = "PNK$ngayHomNay-" . str_pad($soMoi, 3, '0', STR_PAD_LEFT);
+    }
+}
+$conn->close();
 ?>
 
-<?php include_once("../../layout/giaodien/khotp.php"); ?>
+<div class="content">
+    <div class="card shadow-sm p-4">
+        <h5 class="fw-bold text-primary mb-4">LẬP PHIẾU NHẬP KHO THÀNH PHẨM</h5>
 
-    <!-- Main Content -->
-    <div class="content">
-        <div class="card shadow-sm p-4">
-            <h5 class="fw-bold text-primary mb-3"><i class="bi bi-arrow-down-square me-2"></i>LẬP PHIẾU NHẬP KHO</h5>
+        <?php if (empty($dsLo)): ?>
+        <div class="alert alert-warning text-center py-5">
+            Không có lô nào đủ điều kiện nhập kho!<br>
+            Chỉ các lô đã được kiểm định <span class="badge bg-success">Đạt</span> và chưa nhập kho mới được hiển thị.
+        </div>
+        <?php else: ?>
+        <div class="alert alert-success text-center py-3">
+            Có <strong><?= count($dsLo) ?> lô</strong> đạt chất lượng – Tổng: <strong><?= number_format($tongSoLuong) ?>
+                sản phẩm</strong>
+        </div>
+        <?php endif; ?>
 
-            <form id="frmNhapKho" action="xuly_nhapkho.php" method="POST">
-                <table class="table table-bordered align-middle">
-                    <thead class="table-primary">
-                        <tr>
-                            <th><input type="checkbox" id="chonTatCa"></th>
-                            <th>Mã lô</th>
-                            <th>Mã SP</th>
-                            <th>Tên SP</th>
-                            <th>Ngày SX</th>
-                            <th>Số lượng</th>
-                            <th>Trạng thái QC</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach($dsLo as $row): ?>
-                        <tr>
-                            <td><input type="checkbox" class="chonLo" name="dsLo[]" value="<?php echo $row['maLo']; ?>">
-                            </td>
-                            <td><?php echo $row['maLo']; ?></td>
-                            <td><?php echo $row['maSP']; ?></td>
-                            <td><?php echo $row['tenSP']; ?></td>
-                            <td><?php echo $row['ngaySX']; ?></td>
-                            <td><?php echo $row['soLuong']; ?></td>
-                            <td><?php echo $row['trangThaiQC']; ?></td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+        <!-- Bảng lô -->
+        <div class="table-responsive mb-4">
+            <table class="table table-bordered table-hover text-center">
+                <thead class="table-primary">
+                    <tr>
+                        <th>Mã lô</th>
+                        <th>Mã SP</th>
+                        <th>Tên SP</th>
+                        <th>Ngày SX</th>
+                        <th>Số lượng</th>
+                        <th>QC</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach($dsLo as $row): ?>
+                    <tr>
+                        <td class="fw-bold fs-5"><?= $row['maLo'] ?></td>
+                        <td><?= $row['maSP'] ?></td>
+                        <td><?= $row['tenSP'] ?></td>
+                        <td><?= date('d/m/Y', strtotime($row['ngaySX'])) ?></td>
+                        <td class="fw-bold text-primary fs-4"><?= number_format($row['soLuong']) ?></td>
+                        <td><span class="badge bg-success">Đạt</span></td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
 
-                <div class="row mt-3">
-                    <div class="col-md-4">
-                        <label class="form-label fw-bold">Người lập:</label>
-                        <input type="text" class="form-control"
-                            value="<?php echo isset($_SESSION['hoTen']) ? $_SESSION['hoTen'] : ''; ?>" readonly>
-                        <input type="hidden" id="nguoiLap" name="nguoiLap"
-                            value="<?php echo isset($_SESSION['maNV']) ? $_SESSION['maNV'] : ''; ?>">
-                        <?php 
-                        if (!isset($_SESSION['maNV'])) {
-                            echo '<div class="text-danger">Vui lòng đăng nhập lại để lấy thông tin người lập phiếu.</div>';
-                        }
-                        ?>
+        <?php if (!empty($dsLo)): ?>
+        <!-- Thông tin phiếu -->
+        <div class="card border-success mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">THÔNG TIN PHIẾU NHẬP</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Mã phiếu</label>
+                        <div class="form-control fw-bold fs-4 text-success"><?= $maPhieuMoi ?></div>
                     </div>
-                    <div class="col-md-4">
-                        <label class="form-label fw-bold">Ngày lập:</label>
-                        <input type="date" class="form-control" id="ngayLapMain" value="<?php echo date("Y-m-d"); ?>">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Tổng số lượng</label>
+                        <div class="form-control fw-bold fs-4 text-primary"><?= number_format($tongSoLuong) ?> sản phẩm
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Người lập</label>
+                        <div class="form-control fw-bold"><?= $_SESSION['hoTen'] ?></div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Ngày nhập kho</label>
+                        <input type="date" id="ngayLap" class="form-control" value="<?= date('Y-m-d') ?>" required>
                     </div>
                 </div>
-
-                <div class="mt-3">
-                    <button type="button" id="btnTaoPhieu" class="btn btn-primary">
-                        <i class="bi bi-file-earmark-plus me-1"></i> Tạo phiếu nhập kho
+                <div class="text-end mt-4">
+                    <button type="button" id="btnNhapKho" class="btn btn-success btn-lg px-5 shadow">
+                        XÁC NHẬN NHẬP KHO TẤT CẢ
                     </button>
                 </div>
+            </div>
+        </div>
+        <?php endif; ?>
 
-                <!-- PHIẾU CHI TIẾT (ẩn, hiện khi bấm tạo phiếu) -->
-                <div id="phieuChiTiet" class="card mt-4 p-3 d-none">
-                    <h5 class="fw-bold text-success">PHIẾU NHẬP KHO</h5>
-                    <div class="row mb-3">
-                        <div class="col-md-4">
-                            <label class="form-label">Mã phiếu</label>
-                            <input type="text" id="maPhieu" name="maPhieu" class="form-control" readonly>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Người lập</label>
-                            <input type="text" class="form-control"
-                                value="<?php echo isset($_SESSION['hoTen'])?$_SESSION['hoTen']:'';?>" readonly>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Ngày lập</label>
-                            <input type="date" id="ngayLap" name="ngayLap" class="form-control" required>
-                        </div>
-                    </div>
-
-                    <h6 class="fw-bold">Danh sách lô được nhập</h6>
-                    <table class="table table-bordered">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Mã lô</th>
-                                <th>Mã SP</th>
-                                <th>Tên SP</th>
-                                <th>Số lượng</th>
-                            </tr>
-                        </thead>
-                        <tbody id="dsLoSelected"></tbody>
-                    </table>
-
-                    <div class="text-end">
-                        <button type="submit" class="btn btn-success" id="btnXacNhan">
-                            <i class="bi bi-check-circle me-1"></i> Xác nhận nhập kho
-                        </button>
-                        <button type="button" class="btn btn-secondary ms-2" id="btnHuy">
-                            Hủy
-                        </button>
-                    </div>
-                </div>
-
-                <!-- container for dynamically added hidden inputs dsLo[] -->
-                <div id="hiddenInputs"></div>
-            </form>
-
-            </form>
+        <!-- Phiếu nhập kho (chỉ hiện khi thành công) -->
+        <div id="phieuNhapKho" class="card shadow mt-4 d-none">
+            <div class="card-body p-5" id="noiDungPhieu"></div>
         </div>
     </div>
+</div>
 
-    <script>
-    document.getElementById('chonTatCa').addEventListener('change', function() {
-        document.querySelectorAll('.chonLo').forEach(cb => cb.checked = this.checked);
+<script>
+document.getElementById("btnNhapKho")?.addEventListener("click", function() {
+    if (!confirm("Xác nhận nhập kho tất cả lô?")) return;
+
+    const formData = new FormData();
+    document.querySelectorAll("tbody tr").forEach(row => {
+        const maLo = row.cells[0].textContent.trim();
+        formData.append('dsLo[]', maLo);
     });
+    formData.append('ngayLap', document.getElementById("ngayLap").value);
 
-    // Helper to create PNK code
-    function taoMaPhieu() {
-        const ngay = new Date();
-        const y = ngay.getFullYear();
-        const m = String(ngay.getMonth() + 1).padStart(2, '0');
-        const d = String(ngay.getDate()).padStart(2, '0');
-        const rand = Math.floor(Math.random() * 900 + 100);
-        return `PNK${y}${m}${d}-${rand}`;
-    }
-
-    // Khi bấm tạo phiếu: thu các lô được chọn, hiển thị chi tiết phiếu
-    document.getElementById('btnTaoPhieu').addEventListener('click', function() {
-        const rows = document.querySelectorAll('tbody tr');
-        const selected = [];
-        rows.forEach(row => {
-            const cb = row.querySelector('.chonLo');
-            if (cb && cb.checked) {
-                const cells = row.querySelectorAll('td');
-                selected.push({
-                    maLo: cells[1].innerText.trim(),
-                    maSP: cells[2].innerText.trim(),
-                    tenSP: cells[3].innerText.trim(),
-                    soLuong: cells[5].innerText.trim()
-                });
+    fetch('xuly_nhapkho.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success') {
+                document.getElementById("noiDungPhieu").innerHTML = data.html;
+                document.getElementById("phieuNhapKho").classList.remove('d-none');
+                alert("Nhập kho thành công!");
+                setTimeout(() => location.reload(), 3000);
+            } else {
+                alert("Lỗi: " + data.message);
             }
-        });
+        })
+        .catch(() => alert("Lỗi kết nối!"));
+});
+</script>
 
-        if (selected.length === 0) {
-            alert('Vui lòng chọn ít nhất một lô để tạo phiếu.');
-            return;
-        }
-
-        // Tạo mã phiếu và điền ngày
-        document.getElementById('maPhieu').value = taoMaPhieu();
-        const ngay = document.getElementById('ngayLapMain').value || new Date().toISOString().slice(0, 10);
-        document.getElementById('ngayLap').value = ngay;
-
-        // Điền bảng chi tiết
-        const tbody = document.getElementById('dsLoSelected');
-        tbody.innerHTML = '';
-        const hiddenInputs = document.getElementById('hiddenInputs');
-        hiddenInputs.innerHTML = '';
-        selected.forEach(lo => {
-            const tr = document.createElement('tr');
-            tr.innerHTML =
-                `<td>${lo.maLo}</td><td>${lo.maSP}</td><td>${lo.tenSP}</td><td>${lo.soLuong}</td>`;
-            tbody.appendChild(tr);
-            // tạo hidden input cho mỗi maLo
-            const inp = document.createElement('input');
-            inp.type = 'hidden';
-            inp.name = 'dsLo[]';
-            inp.value = lo.maLo;
-            hiddenInputs.appendChild(inp);
-        });
-
-        // Hiện phiếu chi tiết
-        document.getElementById('phieuChiTiet').classList.remove('d-none');
-        // cuộn tới phiếu chi tiết
-        document.getElementById('phieuChiTiet').scrollIntoView({
-            behavior: 'smooth'
-        });
-    });
-
-    // Hủy phiếu chi tiết
-    document.getElementById('btnHuy').addEventListener('click', function() {
-        document.getElementById('phieuChiTiet').classList.add('d-none');
-        document.getElementById('dsLoSelected').innerHTML = '';
-        document.getElementById('hiddenInputs').innerHTML = '';
-    });
-
-    // Khi submit form, đảm bảo có maPhieu và dsLo
-    document.getElementById('frmNhapKho').addEventListener('submit', function(e) {
-        const ma = document.getElementById('maPhieu').value.trim();
-        const hidden = document.querySelectorAll('input[name="dsLo[]"]');
-        if (!ma || hidden.length === 0) {
-            e.preventDefault();
-            alert('Phiếu không hợp lệ. Vui lòng tạo phiếu lại.');
-        }
-    });
-    </script>
-    
-<?php include_once("../../layout/footer.php"); ?>
+<?php include_once('../../layout/footer.php'); ?>
