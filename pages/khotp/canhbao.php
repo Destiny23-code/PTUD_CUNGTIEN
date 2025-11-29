@@ -1,5 +1,5 @@
 <?php
-session_start();
+include_once('../../layout/giaodien/khotp.php');
 require_once("../../class/clslogin.php");
 $p = new login();
 
@@ -78,8 +78,7 @@ $stt = 1;
 
             <div class="col-md-4">
                 <label class="form-label mb-1 fw-semibold">Ngày sản xuất</label>
-                <input type="date" class="form-control" name="ngaySX"
-                    value="<?php echo htmlspecialchars($ngaySX); ?>">
+                <input type="date" class="form-control" name="ngaySX" value="<?php echo htmlspecialchars($ngaySX); ?>">
             </div>
 
             <div class="col-md-4 d-flex justify-content-start align-items-end">

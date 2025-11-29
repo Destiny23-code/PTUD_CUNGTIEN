@@ -19,7 +19,6 @@
                 $tenNV = $row['tenNV'];
                 $maNV = $row['maNV'];
                 $phanquyen = $row['phanquyen'];
-                session_start();
                 $_SESSION['login'] = true;
                 $_SESSION['id'] = $id;
                 $_SESSION['user'] = $username;
