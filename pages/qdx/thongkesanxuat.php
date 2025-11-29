@@ -20,26 +20,95 @@ include_once('../../layout/giaodien/qdx.php');
 
 $thongKe = new ThongKeSanXuat();
 
-// Test kết nối và dữ liệu
-$testData = $thongKe->testQuery();
-error_log("Test data: " . print_r($testData, true));
-
 // Xử lý bộ lọc
 $tuNgay = isset($_GET['tu_ngay']) ? $_GET['tu_ngay'] : '2025-10-01';
-$denNgay = isset($_GET['den_ngay']) ? $_GET['den_ngay'] : '2025-11-30';
+$denNgay = isset($_GET['den_ngay']) ? $_GET['den_ngay'] : '2025-12-30';
 $dayChuyen = isset($_GET['day_chuyen']) ? $_GET['day_chuyen'] : '';
 $maSP = isset($_GET['ma_sp']) ? $_GET['ma_sp'] : '';
 
-error_log("Filter: tuNgay={$tuNgay}, denNgay={$denNgay}, maSP={$maSP}");
+// Xử lý xuất Excel
+if (isset($_GET['export']) && $_GET['export'] == 'excel') {
+    $dsThongKe = $thongKe->layDuLieuThongKe($tuNgay, $denNgay, $dayChuyen, $maSP);
+    $tongQuan = $thongKe->layTongQuanThongKe($tuNgay, $denNgay);
+    
+    header('Content-Type: application/vnd.ms-excel; charset=utf-8');
+    header('Content-Disposition: attachment; filename="ThongKeSanXuat_' . date('YmdHis') . '.xls"');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+    
+    echo "\xEF\xBB\xBF"; // UTF-8 BOM
+    ?>
+    <html xmlns:x="urn:schemas-microsoft-com:office:excel">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+        <style>
+            table { border-collapse: collapse; }
+            th, td { border: 1px solid black; padding: 5px; }
+            th { background-color: #4CAF50; color: white; font-weight: bold; }
+            .text-center { text-align: center; }
+            .text-right { text-align: right; }
+        </style>
+    </head>
+    <body>
+        <h2 style="text-align: center;">BÁO CÁO THỐNG KÊ SẢN XUẤT</h2>
+        <p><strong>Thời gian:</strong> Từ <?php echo date('d/m/Y', strtotime($tuNgay)); ?> đến <?php echo date('d/m/Y', strtotime($denNgay)); ?></p>
+        <p><strong>Ngày xuất:</strong> <?php echo date('d/m/Y H:i:s'); ?></p>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>STT</th>
+                    <th>Thời Gian</th>
+                    <th>Dây Chuyền</th>
+                    <th>Mã SP</th>
+                    <th>Tên Sản Phẩm</th>
+                    <th>SL Kế Hoạch</th>
+                    <th>SL Thực Tế</th>
+                    <th>Tỷ Lệ HT (%)</th>
+                    <th>SP Lỗi</th>
+                    <th>Tỷ Lệ Lỗi (%)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php 
+                $stt = 0;
+                foreach ($dsThongKe as $row): 
+                    $stt++;
+                ?>
+                <tr>
+                    <td class="text-center"><?php echo $stt; ?></td>
+                    <td class="text-center"><?php echo $row['ThoiGian']; ?></td>
+                    <td class="text-center"><?php echo $row['DayChuyen']; ?></td>
+                    <td class="text-center"><?php echo $row['MS_SP']; ?></td>
+                    <td><?php echo $row['TenSP']; ?></td>
+                    <td class="text-right"><?php echo number_format($row['SL_KeHoach']); ?></td>
+                    <td class="text-right"><?php echo number_format($row['SL_ThucTe']); ?></td>
+                    <td class="text-center"><?php echo $row['TyLeHoanThanh']; ?>%</td>
+                    <td class="text-right"><?php echo number_format($row['SP_Loi']); ?></td>
+                    <td class="text-center"><?php echo $row['TyLeLoi']; ?>%</td>
+                </tr>
+                <?php endforeach; ?>
+                <tr style="background-color: #f0f0f0; font-weight: bold;">
+                    <td colspan="5" class="text-right">TỔNG CỘNG</td>
+                    <td class="text-right"><?php echo number_format($tongQuan['tongKeHoach']); ?></td>
+                    <td class="text-right"><?php echo number_format($tongQuan['slThucTe']); ?></td>
+                    <td class="text-center"><?php echo $tongQuan['tongKeHoach'] > 0 ? round(($tongQuan['slThucTe'] / $tongQuan['tongKeHoach']) * 100, 1) : 0; ?>%</td>
+                    <td class="text-right"><?php echo number_format($tongQuan['slLoi']); ?></td>
+                    <td class="text-center"><?php echo $tongQuan['slThucTe'] > 0 ? round(($tongQuan['slLoi'] / $tongQuan['slThucTe']) * 100, 2) : 0; ?>%</td>
+                </tr>
+            </tbody>
+        </table>
+    </body>
+    </html>
+    <?php
+    exit();
+}
 
 // Lấy dữ liệu từ CSDL
 $dsThongKe = $thongKe->layDuLieuThongKe($tuNgay, $denNgay, $dayChuyen, $maSP);
 $dsSanPham = $thongKe->layDanhSachSanPham();
+$dsDayChuyen = $thongKe->layDanhSachDayChuyen();
 $tongQuan = $thongKe->layTongQuanThongKe($tuNgay, $denNgay);
-
-error_log("dsThongKe count: " . count($dsThongKe));
-error_log("dsSanPham count: " . count($dsSanPham));
-error_log("tongQuan: " . print_r($tongQuan, true));
 
 // Tính toán
 $tyLeHoanThanh = $tongQuan['tongKeHoach'] > 0 ? 
@@ -88,9 +157,15 @@ $tyLeLoi = $tongQuan['slThucTe'] > 0 ?
                             <label class="form-label fw-bold">Dây Chuyền</label>
                             <select name="day_chuyen" class="form-select">
                                 <option value="">Tất Cả Dây Chuyền</option>
-                                <option value="DC01" <?php echo $dayChuyen == 'DC01' ? 'selected' : ''; ?>>DC01</option>
-                                <option value="DC02" <?php echo $dayChuyen == 'DC02' ? 'selected' : ''; ?>>DC02</option>
-                                <option value="DC03" <?php echo $dayChuyen == 'DC03' ? 'selected' : ''; ?>>DC03</option>
+                                <?php foreach ($dsDayChuyen as $dc): ?>
+                                    <?php 
+                                    $maDC = str_pad($dc['maDC'], 3, '0', STR_PAD_LEFT);
+                                    $dcValue = 'DC' . $maDC;
+                                    ?>
+                                    <option value="<?php echo $dcValue; ?>" <?php echo $dayChuyen == $dcValue ? 'selected' : ''; ?>>
+                                        <?php echo $dcValue . ' - ' . htmlspecialchars($dc['tenDC']); ?>
+                                    </option>
+                                <?php endforeach; ?>
                             </select>
                         </div>
                         <div class="col-lg-3 col-md-6">
@@ -157,9 +232,9 @@ $tyLeLoi = $tongQuan['slThucTe'] > 0 ?
         <div class="card shadow-sm">
             <div class="card-header bg-success text-white fw-bold d-flex justify-content-between align-items-center">
                 <span><i class="bi bi-table me-2"></i>Bảng Chi Tiết Kết Quả Sản Xuất (Theo Ngày/Ca)</span>
-                <button class="btn btn-light btn-sm" onclick="alert('Chức năng xuất Excel đang phát triển')">
+                <a href="?tu_ngay=<?php echo $tuNgay; ?>&den_ngay=<?php echo $denNgay; ?>&day_chuyen=<?php echo $dayChuyen; ?>&ma_sp=<?php echo $maSP; ?>&export=excel" class="btn btn-light btn-sm">
                     <i class="bi bi-file-earmark-excel me-1"></i>Xuất Excel
-                </button>
+                </a>
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">

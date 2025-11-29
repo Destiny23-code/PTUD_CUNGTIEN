@@ -24,25 +24,30 @@ $phanBo = new PhanBoDayChuyen();
 // Xử lý thêm phân bổ mới
 $thongBao = '';
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['themPhanBo'])) {
-    $maDC = $_POST['maDC'];
-    $maKHSX = $_POST['maKHSX'];
-    $maSP = $_POST['maSP'];
-    $soLuong = $_POST['soLuong'];
-    $ngayBatDau = $_POST['ngayBatDau'];
-    $ngayKetThuc = $_POST['ngayKetThuc'];
-    $ghiChu = $_POST['ghiChu'];
+    $maDC = isset($_POST['maDC']) ? $_POST['maDC'] : '';
+    $maKHSX = isset($_POST['maKHSX']) ? $_POST['maKHSX'] : '';
+    $maSP = isset($_POST['maSP']) ? $_POST['maSP'] : '';
+    $soLuong = isset($_POST['soLuong']) ? $_POST['soLuong'] : '';
+    $ngayBatDau = isset($_POST['ngayBatDau']) ? $_POST['ngayBatDau'] : '';
+    $ngayKetThuc = isset($_POST['ngayKetThuc']) ? $_POST['ngayKetThuc'] : '';
+    $ghiChu = isset($_POST['ghiChu']) ? $_POST['ghiChu'] : '';
     
     if ($phanBo->themPhanBo($maDC, $maKHSX, $maSP, $soLuong, $ngayBatDau, $ngayKetThuc, $ghiChu)) {
-        $thongBao = '<div class="alert alert-success alert-dismissible fade show" role="alert">
-            <i class="bi bi-check-circle me-2"></i>Thêm phân bổ dây chuyền thành công!
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>';
+        header("Location: pbdc.php?success=1");
+        exit();
     } else {
         $thongBao = '<div class="alert alert-danger alert-dismissible fade show" role="alert">
             <i class="bi bi-x-circle me-2"></i>Lỗi khi thêm phân bổ dây chuyền!
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>';
     }
+}
+
+if (isset($_GET['success'])) {
+    $thongBao = '<div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="bi bi-check-circle me-2"></i>Thêm phân bổ dây chuyền thành công!
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>';
 }
 
 // Xử lý tìm kiếm
@@ -53,6 +58,15 @@ $thongKe = $phanBo->layThongKe();
 // Lấy danh sách cho form
 $dsDayChuyen = $phanBo->layDanhSachDayChuyen();
 $dsKeHoach = $phanBo->layKeHoachChuaPhanBo();
+
+// Debug: Hiển thị thông tin kế hoạch
+if (isset($_GET['debug'])) {
+    echo "<pre style='background: #f8f9fa; padding: 15px; border: 1px solid #dee2e6; margin: 20px;'>";
+    echo "Số lượng kế hoạch tìm thấy: " . count($dsKeHoach) . "\n\n";
+    echo "Chi tiết kế hoạch:\n";
+    print_r($dsKeHoach);
+    echo "</pre>";
+}
 ?>
 
 <div class="content">
@@ -81,10 +95,50 @@ $dsKeHoach = $phanBo->layKeHoachChuaPhanBo();
             <div class="col-lg-6 col-md-6 mb-3">
                 <div class="card shadow-sm border-0" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
                     <div class="card-body text-white text-center">
-                        <h2 class="mb-0 fw-bold"><?php echo $thongKe['tongHoatDong']; ?></h2>
-                        <p class="mb-0"><i class="bi bi-check-circle me-2"></i>Dây Chuyền Hoạt Động</p>
+                        <h2 class="mb-0 fw-bold"><?php echo $thongKe['tongPhanBo']; ?></h2>
+                        <p class="mb-0"><i class="bi bi-check-circle me-2"></i>Tổng Phân Bổ</p>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- KẾ HOẠCH SẢN XUẤT ĐÃ DUYỆT -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-info text-white fw-bold">
+                <i class="bi bi-clipboard-check me-2"></i>Kế Hoạch Sản Xuất Đã Duyệt (<?php echo count($dsKeHoach); ?>)
+            </div>
+            <div class="card-body">
+                <?php if (!empty($dsKeHoach)): ?>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Mã KHSX</th>
+                                    <th>Sản Phẩm</th>
+                                    <th>Số Lượng</th>
+                                    <th>Ngày Lập</th>
+                                    <th>Hạn Giao</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($dsKeHoach as $kh): ?>
+                                <tr>
+                                    <td>KHSX-<?php echo $kh['maKHSX']; ?></td>
+                                    <td><?php echo htmlspecialchars($kh['tenSP']); ?></td>
+                                    <td><?php echo number_format($kh['soLuong'], 0, ',', '.'); ?></td>
+                                    <td><?php echo date('d/m/Y', strtotime($kh['ngayLap'])); ?></td>
+                                    <td><?php echo date('d/m/Y', strtotime($kh['ngayGiaoDuKien'])); ?></td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php else: ?>
+                    <div class="alert alert-warning mb-0">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Không có kế hoạch sản xuất nào đã được duyệt. Vui lòng duyệt kế hoạch sản xuất trước khi phân bổ dây chuyền.
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
 
@@ -156,11 +210,11 @@ $dsKeHoach = $phanBo->layKeHoachChuaPhanBo();
                                             </span>
                                         <?php elseif ($trangThai == 'Đang thực hiện'): ?>
                                             <span class="badge bg-primary">
-                                                <i class="bi bi-arrow-repeat me-1"></i>Đang Chạy
+                                                <i class="bi bi-arrow-repeat me-1"></i>Đang Thực Hiện
                                             </span>
                                         <?php else: ?>
                                             <span class="badge bg-warning text-dark">
-                                                <i class="bi bi-clock me-1"></i>Chưa Chọn
+                                                <i class="bi bi-clock me-1"></i>Chưa Bắt Đầu
                                             </span>
                                         <?php endif; ?>
                                     </td>
@@ -210,15 +264,25 @@ $dsKeHoach = $phanBo->layKeHoachChuaPhanBo();
                             <label class="form-label fw-bold">Kế Hoạch Sản Xuất <span class="text-danger">*</span></label>
                             <select name="maKHSX" id="selectKHSX" class="form-select" required>
                                 <option value="">-- Chọn kế hoạch --</option>
-                                <?php foreach ($dsKeHoach as $kh): ?>
-                                    <option value="<?php echo $kh['maKHSX']; ?>" 
-                                            data-masp="<?php echo $kh['maSP']; ?>"
-                                            data-tensp="<?php echo htmlspecialchars($kh['tenSP']); ?>"
-                                            data-soluong="<?php echo $kh['soLuong']; ?>">
-                                        KHSX-<?php echo $kh['maKHSX']; ?> (<?php echo htmlspecialchars($kh['tenSP']); ?>)
-                                    </option>
-                                <?php endforeach; ?>
+                                <?php if (!empty($dsKeHoach)): ?>
+                                    <?php foreach ($dsKeHoach as $kh): ?>
+                                        <option value="<?php echo $kh['maKHSX']; ?>" 
+                                                data-masp="<?php echo $kh['maSP']; ?>"
+                                                data-tensp="<?php echo htmlspecialchars($kh['tenSP']); ?>"
+                                                data-soluong="<?php echo $kh['soLuong']; ?>">
+                                            KHSX-<?php echo $kh['maKHSX']; ?> - <?php echo htmlspecialchars($kh['tenSP']); ?> (SL: <?php echo number_format($kh['soLuong'], 0, ',', '.'); ?>)
+                                        </option>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <option value="" disabled>Không có kế hoạch đã duyệt</option>
+                                <?php endif; ?>
                             </select>
+                            <?php if (empty($dsKeHoach)): ?>
+                                <small class="text-danger">
+                                    <i class="bi bi-exclamation-circle me-1"></i>
+                                    Chưa có kế hoạch sản xuất nào được duyệt. Vui lòng duyệt kế hoạch trước.
+                                </small>
+                            <?php endif; ?>
                         </div>
 
                         <div class="col-md-6">
@@ -269,6 +333,8 @@ document.getElementById('selectKHSX').addEventListener('change', function() {
     const tenSP = selectedOption.getAttribute('data-tensp');
     const soLuong = selectedOption.getAttribute('data-soluong');
     
+    console.log('Selected:', {maSP, tenSP, soLuong}); // Debug
+    
     if (maSP) {
         document.getElementById('inputMaSP').value = maSP;
         document.getElementById('displaySP').value = tenSP;
@@ -278,6 +344,33 @@ document.getElementById('selectKHSX').addEventListener('change', function() {
         document.getElementById('displaySP').value = '';
         document.getElementById('inputSoLuong').value = '';
     }
+});
+
+// Validate form trước khi submit
+document.querySelector('form[method="POST"]').addEventListener('submit', function(e) {
+    const maSP = document.getElementById('inputMaSP').value;
+    const soLuong = document.getElementById('inputSoLuong').value;
+    
+    if (!maSP || maSP === '') {
+        e.preventDefault();
+        alert('Vui lòng chọn kế hoạch sản xuất!');
+        return false;
+    }
+    
+    if (!soLuong || soLuong <= 0) {
+        e.preventDefault();
+        alert('Vui lòng nhập số lượng hợp lệ!');
+        return false;
+    }
+    
+    console.log('Form data:', {
+        maDC: document.querySelector('[name="maDC"]').value,
+        maKHSX: document.querySelector('[name="maKHSX"]').value,
+        maSP: maSP,
+        soLuong: soLuong
+    });
+    
+    return true;
 });
 </script>
 

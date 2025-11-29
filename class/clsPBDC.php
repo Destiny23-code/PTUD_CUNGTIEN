@@ -23,19 +23,39 @@ class PhanBoDayChuyen extends ketnoi {
         }
     }
     
-    // Lấy danh sách kế hoạch sản xuất chưa phân bổ
+    // Lấy danh sách kế hoạch sản xuất đã duyệt
     public function layKeHoachChuaPhanBo() {
         try {
-            $sql = "SELECT kh.maKHSX, kh.ngayLap, kh.hinhThuc,
-                           dh.soLuong, dh.ngayGiaoDuKien,
-                           sp.tenSP, sp.maSP
+            $sql = "SELECT DISTINCT
+                           kh.maKHSX, 
+                           kh.ngayLap, 
+                           kh.hinhThuc,
+                           kh.maDH,
+                           ct.soLuong, 
+                           dh.ngayGiaoDuKien,
+                           sp.tenSP, 
+                           sp.maSP,
+                           dh.maKH
                     FROM kehoachsanxuat kh
                     INNER JOIN donhang dh ON kh.maDH = dh.maDH
                     INNER JOIN chitiet_donhang ct ON dh.maDH = ct.maDH
                     INNER JOIN sanpham sp ON ct.maSP = sp.maSP
                     WHERE kh.trangThai = 'Đã duyệt'
-                    ORDER BY kh.ngayLap DESC";
+                    ORDER BY kh.ngayLap DESC, sp.tenSP";
+            
             $result = $this->laydulieu($this->conn, $sql);
+            
+            // Debug log
+            if ($result === false || $result === null) {
+                error_log("Query failed or returned null");
+                error_log("SQL: " . $sql);
+                if ($this->conn->error) {
+                    error_log("MySQL Error: " . $this->conn->error);
+                }
+            } else {
+                error_log("Found " . count($result) . " production plans");
+            }
+            
             return $result ? $result : array();
         } catch (Exception $e) {
             error_log("Lỗi layKeHoachChuaPhanBo: " . $e->getMessage());
@@ -67,16 +87,16 @@ class PhanBoDayChuyen extends ketnoi {
             $sql1 = "SELECT COUNT(*) as tongDC FROM daychuyen";
             $result1 = $this->laydulieu($this->conn, $sql1);
             
-            $sql2 = "SELECT COUNT(*) as tongHoatDong FROM daychuyen WHERE trangThai = 'Hoạt động'";
+            $sql2 = "SELECT COUNT(*) as tongPhanBo FROM phanbodaychuyen";
             $result2 = $this->laydulieu($this->conn, $sql2);
             
             return array(
                 'tongDayChuyen' => $result1 ? $result1[0]['tongDC'] : 0,
-                'tongHoatDong' => $result2 ? $result2[0]['tongHoatDong'] : 0
+                'tongPhanBo' => $result2 ? $result2[0]['tongPhanBo'] : 0
             );
         } catch (Exception $e) {
             error_log("Lỗi layThongKe: " . $e->getMessage());
-            return array('tongDayChuyen' => 0, 'tongHoatDong' => 0);
+            return array('tongDayChuyen' => 0, 'tongPhanBo' => 0);
         }
     }
     
@@ -94,7 +114,6 @@ class PhanBoDayChuyen extends ketnoi {
                         pb.trangThai,
                         pb.ghiChu,
                         dc.tenDC,
-                        dc.trangThai as trangThaiDC,
                         sp.tenSP,
                         kh.ngayLap,
                         kh.hinhThuc
@@ -102,7 +121,7 @@ class PhanBoDayChuyen extends ketnoi {
                     INNER JOIN daychuyen dc ON pb.maDC = dc.maDC
                     INNER JOIN sanpham sp ON pb.maSP = sp.maSP
                     INNER JOIN kehoachsanxuat kh ON pb.maKHSX = kh.maKHSX
-                    ORDER BY pb.ngayBatDau DESC, pb.maDC";
+                    ORDER BY pb.maPBDC DESC";
             $result = $this->laydulieu($this->conn, $sql);
             return $result ? $result : array();
         } catch (Exception $e) {
@@ -114,7 +133,18 @@ class PhanBoDayChuyen extends ketnoi {
     // Tìm kiếm phân bổ dây chuyền
     public function timKiemPhanBo($keyword) {
         try {
+            $keyword = trim($keyword);
+            if (empty($keyword)) {
+                return $this->layDanhSachPhanBo();
+            }
+            
+            $originalKeyword = $keyword;
             $keyword = $this->conn->real_escape_string($keyword);
+            $numericKeyword = preg_replace('/[^0-9]/', '', $originalKeyword);
+            
+            // Kiểm tra nếu keyword bắt đầu bằng "DC" hoặc chỉ là số -> tìm theo maDC
+            $isDCSearch = (stripos($originalKeyword, 'DC') === 0 || ctype_digit($originalKeyword));
+            
             $sql = "SELECT 
                         pb.maPBDC,
                         pb.maDC,
@@ -126,7 +156,6 @@ class PhanBoDayChuyen extends ketnoi {
                         pb.trangThai,
                         pb.ghiChu,
                         dc.tenDC,
-                        dc.trangThai as trangThaiDC,
                         sp.tenSP,
                         kh.ngayLap,
                         kh.hinhThuc
@@ -134,11 +163,20 @@ class PhanBoDayChuyen extends ketnoi {
                     INNER JOIN daychuyen dc ON pb.maDC = dc.maDC
                     INNER JOIN sanpham sp ON pb.maSP = sp.maSP
                     INNER JOIN kehoachsanxuat kh ON pb.maKHSX = kh.maKHSX
-                    WHERE pb.maDC LIKE '%{$keyword}%'
-                       OR dc.tenDC LIKE '%{$keyword}%'
-                       OR sp.tenSP LIKE '%{$keyword}%'
-                       OR pb.maKHSX LIKE '%{$keyword}%'
-                    ORDER BY pb.ngayBatDau DESC, pb.maDC";
+                    WHERE ";
+            
+            if ($isDCSearch && !empty($numericKeyword)) {
+                // Chỉ tìm theo maDC
+                $sql .= "pb.maDC = {$numericKeyword}";
+            } else {
+                // Tìm theo tên dây chuyền, sản phẩm, trạng thái
+                $sql .= "(dc.tenDC LIKE '%{$keyword}%'
+                         OR sp.tenSP LIKE '%{$keyword}%'
+                         OR pb.trangThai LIKE '%{$keyword}%')";
+            }
+            
+            $sql .= " ORDER BY pb.maPBDC DESC";
+            
             $result = $this->laydulieu($this->conn, $sql);
             return $result ? $result : array();
         } catch (Exception $e) {
@@ -149,23 +187,27 @@ class PhanBoDayChuyen extends ketnoi {
     
     // Thêm phân bổ dây chuyền mới
     public function themPhanBo($maDC, $maKHSX, $maSP, $soLuong, $ngayBatDau, $ngayKetThuc, $ghiChu = '') {
-        try {
-            $maDC = $this->conn->real_escape_string($maDC);
-            $maKHSX = $this->conn->real_escape_string($maKHSX);
-            $maSP = $this->conn->real_escape_string($maSP);
-            $soLuong = intval($soLuong);
-            $ngayBatDau = $this->conn->real_escape_string($ngayBatDau);
-            $ngayKetThuc = $this->conn->real_escape_string($ngayKetThuc);
-            $ghiChu = $this->conn->real_escape_string($ghiChu);
-            
-            $sql = "INSERT INTO phanbodaychuyen (maDC, maKHSX, maSP, soLuong, ngayBatDau, ngayKetThuc, ghiChu, trangThai)
-                    VALUES ('$maDC', '$maKHSX', '$maSP', $soLuong, '$ngayBatDau', '$ngayKetThuc', '$ghiChu', 'Chưa bắt đầu')";
-            
-            return $this->conn->query($sql);
-        } catch (Exception $e) {
-            error_log("Lỗi themPhanBo: " . $e->getMessage());
+        // Validate input
+        if (empty($maDC) || empty($maKHSX) || empty($maSP) || empty($soLuong)) {
             return false;
         }
+        
+        $maDC = intval($maDC);
+        $maKHSX = intval($maKHSX);
+        $maSP = intval($maSP);
+        $soLuong = intval($soLuong);
+        $ngayBatDau = $this->conn->real_escape_string($ngayBatDau);
+        $ngayKetThuc = $this->conn->real_escape_string($ngayKetThuc);
+        $ghiChu = $this->conn->real_escape_string($ghiChu);
+        
+        $sql = "INSERT INTO phanbodaychuyen (maDC, maKHSX, maSP, soLuong, ngayBatDau, ngayKetThuc, trangThai, ghiChu)
+                VALUES ($maDC, $maKHSX, $maSP, $soLuong, '$ngayBatDau', '$ngayKetThuc', 'Chưa bắt đầu', '$ghiChu')";
+        
+        if ($this->conn->query($sql)) {
+            return true;
+        }
+        
+        return false;
     }
     
     // Cập nhật trạng thái phân bổ

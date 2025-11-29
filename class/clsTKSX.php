@@ -10,50 +10,47 @@ class ThongKeSanXuat extends ketnoi {
     
     public function layDuLieuThongKe($tuNgay = null, $denNgay = null, $dayChuyen = null, $maSP = null) {
         try {
-            // Lấy dữ liệu từ bảng kehoachsanxuat và donhang
             $sql = "SELECT 
                         kh.maKHSX,
                         DATE_FORMAT(kh.ngayLap, '%d/%m/%Y') as ThoiGian,
                         kh.ngayLap,
-                        CASE 
-                            WHEN kh.maKHSX % 3 = 0 THEN 'DC01'
-                            WHEN kh.maKHSX % 3 = 1 THEN 'DC02' 
-                            ELSE 'DC03'
-                        END as DayChuyen,
+                        CONCAT('DC', LPAD(pb.maDC, 3, '0')) as DayChuyen,
+                        pb.maDC as maDC_raw,
                         sp.maSP as MS_SP,
                         sp.tenSP as TenSP,
-                        dh.soLuong as SL_KeHoach,
-                        FLOOR(dh.soLuong * 0.95) as SL_ThucTe,
-                        ROUND((FLOOR(dh.soLuong * 0.95) / dh.soLuong) * 100, 1) as TyLeHoanThanh,
-                        FLOOR(dh.soLuong * 0.02) as SP_Loi,
-                        ROUND((FLOOR(dh.soLuong * 0.02) / dh.soLuong) * 100, 2) as TyLeLoi,
+                        ct.soLuong as SL_KeHoach,
+                        pb.soLuong as SL_ThucTe,
+                        ROUND((pb.soLuong / ct.soLuong) * 100, 1) as TyLeHoanThanh,
+                        FLOOR(ct.soLuong * 0.02) as SP_Loi,
+                        ROUND((FLOOR(ct.soLuong * 0.02) / ct.soLuong) * 100, 2) as TyLeLoi,
                         kh.trangThai as TrangThai
                     FROM kehoachsanxuat kh
                     INNER JOIN donhang dh ON kh.maDH = dh.maDH
                     INNER JOIN chitiet_donhang ct ON dh.maDH = ct.maDH
                     INNER JOIN sanpham sp ON ct.maSP = sp.maSP
-                    WHERE kh.ngayLap IS NOT NULL";
+                    LEFT JOIN phanbodaychuyen pb ON kh.maKHSX = pb.maKHSX AND sp.maSP = pb.maSP
+                    WHERE kh.ngayLap IS NOT NULL 
+                      AND kh.trangThai IN ('Đã duyệt', 'Hoàn thành', 'Đang thực hiện')
+                      AND pb.maDC IS NOT NULL";
             
             if ($tuNgay && $denNgay) {
                 $sql .= " AND kh.ngayLap BETWEEN '{$tuNgay}' AND '{$denNgay}'";
+            }
+            
+            if ($dayChuyen && !empty($dayChuyen)) {
+                // Lấy số từ DC001 -> 1
+                $maDC = intval(str_replace('DC', '', $dayChuyen));
+                $sql .= " AND pb.maDC = {$maDC}";
             }
             
             if ($maSP) {
                 $sql .= " AND sp.maSP = " . intval($maSP);
             }
             
-            $sql .= " ORDER BY kh.ngayLap DESC, kh.maKHSX DESC LIMIT 20";
-            
-            error_log("SQL Query: " . $sql);
+            $sql .= " ORDER BY kh.ngayLap DESC, kh.maKHSX DESC LIMIT 50";
             
             $result = $this->laydulieu($this->conn, $sql);
-            
-            error_log("Result count: " . (is_array($result) ? count($result) : 0));
-            
-            if ($result && is_array($result)) {
-                return $result;
-            }
-            return array();
+            return $result ? $result : array();
             
         } catch (Exception $e) {
             error_log("Lỗi layDuLieuThongKe: " . $e->getMessage());
@@ -75,35 +72,47 @@ class ThongKeSanXuat extends ketnoi {
         }
     }
     
+    public function layDanhSachDayChuyen() {
+        try {
+            $sql = "SELECT DISTINCT maDC, tenDC FROM daychuyen ORDER BY maDC";
+            $result = $this->laydulieu($this->conn, $sql);
+            if ($result && is_array($result)) {
+                return $result;
+            }
+            return array();
+        } catch (Exception $e) {
+            error_log("Lỗi layDanhSachDayChuyen: " . $e->getMessage());
+            return array();
+        }
+    }
+    
     public function layTongQuanThongKe($tuNgay = null, $denNgay = null) {
         try {
             $sql = "SELECT 
-                        SUM(dh.soLuong) as tongKeHoach,
-                        COUNT(kh.maKHSX) as tongLo,
-                        SUM(FLOOR(dh.soLuong * 0.95)) as slThucTe,
-                        SUM(FLOOR(dh.soLuong * 0.02)) as slLoi
+                        SUM(ct.soLuong) as tongKeHoach,
+                        COUNT(DISTINCT kh.maKHSX) as tongLo,
+                        SUM(COALESCE(pb.soLuong, FLOOR(ct.soLuong * 0.95))) as slThucTe,
+                        SUM(FLOOR(ct.soLuong * 0.02)) as slLoi
                     FROM kehoachsanxuat kh
                     INNER JOIN donhang dh ON kh.maDH = dh.maDH
-                    WHERE kh.ngayLap IS NOT NULL";
+                    INNER JOIN chitiet_donhang ct ON dh.maDH = ct.maDH
+                    LEFT JOIN phanbodaychuyen pb ON kh.maKHSX = pb.maKHSX AND ct.maSP = pb.maSP
+                    WHERE kh.ngayLap IS NOT NULL AND kh.trangThai IN ('Đã duyệt', 'Hoàn thành', 'Đang thực hiện')";
             
             if ($tuNgay && $denNgay) {
                 $sql .= " AND kh.ngayLap BETWEEN '{$tuNgay}' AND '{$denNgay}'";
             }
             
-            error_log("SQL TongQuan: " . $sql);
-            
             $result = $this->laydulieu($this->conn, $sql);
             
             if (!empty($result) && is_array($result)) {
                 $data = $result[0];
-                $data['tongKeHoach'] = $data['tongKeHoach'] ? $data['tongKeHoach'] : 0;
-                $data['tongLo'] = $data['tongLo'] ? $data['tongLo'] : 0;
-                $data['slThucTe'] = $data['slThucTe'] ? $data['slThucTe'] : 0;
-                $data['slLoi'] = $data['slLoi'] ? $data['slLoi'] : 0;
-                
-                error_log("TongQuan data: " . print_r($data, true));
-                
-                return $data;
+                return array(
+                    'tongKeHoach' => $data['tongKeHoach'] ? intval($data['tongKeHoach']) : 0,
+                    'tongLo' => $data['tongLo'] ? intval($data['tongLo']) : 0,
+                    'slThucTe' => $data['slThucTe'] ? intval($data['slThucTe']) : 0,
+                    'slLoi' => $data['slLoi'] ? intval($data['slLoi']) : 0
+                );
             }
             
             return array('tongKeHoach' => 0, 'tongLo' => 0, 'slThucTe' => 0, 'slLoi' => 0);

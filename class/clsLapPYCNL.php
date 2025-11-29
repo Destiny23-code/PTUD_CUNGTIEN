@@ -10,21 +10,18 @@ class LapPYCNL extends ketnoi {
 
     public function getKeHoachSanXuat() {
         try {
-            // Lấy kế hoạch sản xuất từ bảng kehoachsanxuat, donhang và chitiet_donhang
-            $sql = "SELECT DISTINCT kh.maKHSX, kh.ngayLap, kh.hinhThuc,
-                           dh.maDH, dh.soLuong as soLuongCanSX,
+            $sql = "SELECT kh.maKHSX, kh.ngayLap, kh.hinhThuc,
+                           dh.maDH, ct.soLuong as soLuongCanSX,
                            sp.maSP, sp.tenSP
                     FROM kehoachsanxuat kh
                     INNER JOIN donhang dh ON kh.maDH = dh.maDH
                     INNER JOIN chitiet_donhang ct ON dh.maDH = ct.maDH
                     INNER JOIN sanpham sp ON ct.maSP = sp.maSP
                     WHERE kh.trangThai = 'Đã duyệt'
-                    ORDER BY kh.ngayLap DESC";
+                    ORDER BY kh.ngayLap DESC, sp.tenSP";
             
-            error_log("SQL KeHoach: " . $sql);
             $result = $this->laydulieu($this->conn, $sql);
-            error_log("Số kế hoạch tìm thấy: " . count($result));
-            return $result;
+            return $result ? $result : array();
         } catch (Exception $e) {
             error_log("Lỗi getKeHoachSanXuat: " . $e->getMessage());
             return array();
@@ -37,10 +34,12 @@ class LapPYCNL extends ketnoi {
             if ($ma <= 0) return null;
             
             $sql = "SELECT kh.maKHSX, kh.ngayLap, kh.hinhThuc, kh.nguoiLap,
-                           dh.maDH, dh.soLuong as soLuongCanSX, dh.ngayDat, dh.ngayGiaoDuKien
+                           dh.maDH, ct.soLuong as soLuongCanSX, dh.ngayDat, dh.ngayGiaoDuKien
                     FROM kehoachsanxuat kh
                     INNER JOIN donhang dh ON kh.maDH = dh.maDH
-                    WHERE kh.maKHSX = {$ma}";
+                    INNER JOIN chitiet_donhang ct ON dh.maDH = ct.maDH
+                    WHERE kh.maKHSX = {$ma}
+                    LIMIT 1";
             
             $result = $this->laydulieu($this->conn, $sql);
             return !empty($result) ? $result[0] : null;
@@ -64,21 +63,80 @@ class LapPYCNL extends ketnoi {
         }
     }
     
+    public function getDinhMucNguyenLieuByMaSP($maSP) {
+        try {
+            $ma = intval($maSP);
+            if ($ma <= 0) return array();
+            
+            $sql = "SELECT dm.maNL, dm.soLuongTheoSP as soLuongTrong1SP,
+                           nl.tenNL, nl.donViTinh, nl.soLuongTon as tonKhoHienTai
+                    FROM dinhmucnguyenlieu dm
+                    INNER JOIN nguyenlieu nl ON dm.maNL = nl.maNL
+                    WHERE dm.maSP = {$ma}
+                    ORDER BY nl.tenNL";
+            
+            $result = $this->laydulieu($this->conn, $sql);
+            return $result ? $result : array();
+        } catch (Exception $e) {
+            error_log("Lỗi getDinhMucNguyenLieuByMaSP: " . $e->getMessage());
+            return array();
+        }
+    }
+    
+    public function getKeHoachSanXuatByMaSP($maKHSX, $maSP) {
+        try {
+            $maKH = intval($maKHSX);
+            $maSPInt = intval($maSP);
+            if ($maKH <= 0 || $maSPInt <= 0) return null;
+            
+            $sql = "SELECT kh.maKHSX, kh.ngayLap, kh.hinhThuc, kh.nguoiLap,
+                           dh.maDH, ct.soLuong as soLuongCanSX, dh.ngayDat, dh.ngayGiaoDuKien
+                    FROM kehoachsanxuat kh
+                    INNER JOIN donhang dh ON kh.maDH = dh.maDH
+                    INNER JOIN chitiet_donhang ct ON dh.maDH = ct.maDH
+                    WHERE kh.maKHSX = {$maKH} AND ct.maSP = {$maSPInt}
+                    LIMIT 1";
+            
+            $result = $this->laydulieu($this->conn, $sql);
+            return !empty($result) ? $result[0] : null;
+        } catch (Exception $e) {
+            error_log("Lỗi getKeHoachSanXuatByMaSP: " . $e->getMessage());
+            return null;
+        }
+    }
+
     public function getDinhMucNguyenLieuByKHSX($maKHSX) {
         try {
             $ma = intval($maKHSX);
             if ($ma <= 0) return array();
             
-            // Sửa lại truy vấn với tên cột chính xác
-            $sql = "SELECT ct.maNL, ct.soLuong1SP as soLuongTrong1SP, 
-                           nl.tenNL, nl.donViTinh, nl.soLuongTon as tonKhoHienTai
-                    FROM khsx_chitiet_nguyenlieu ct
-                    JOIN nguyenlieu nl ON ct.maNL = nl.maNL
-                    WHERE ct.maKHSX = {$ma}";
+            // Lấy maSP từ kế hoạch sản xuất
+            $sqlSP = "SELECT sp.maSP
+                      FROM kehoachsanxuat kh
+                      INNER JOIN donhang dh ON kh.maDH = dh.maDH
+                      INNER JOIN chitiet_donhang ct ON dh.maDH = ct.maDH
+                      INNER JOIN sanpham sp ON ct.maSP = sp.maSP
+                      WHERE kh.maKHSX = {$ma}
+                      LIMIT 1";
             
-            error_log("SQL DinhMuc: " . $sql);
+            $resultSP = $this->laydulieu($this->conn, $sqlSP);
+            
+            if (empty($resultSP)) {
+                return array();
+            }
+            
+            $maSP = $resultSP[0]['maSP'];
+            
+            // Lấy định mức nguyên liệu cho sản phẩm này
+            $sql = "SELECT dm.maNL, dm.soLuongTheoSP as soLuongTrong1SP,
+                           nl.tenNL, nl.donViTinh, nl.soLuongTon as tonKhoHienTai
+                    FROM dinhmucnguyenlieu dm
+                    INNER JOIN nguyenlieu nl ON dm.maNL = nl.maNL
+                    WHERE dm.maSP = {$maSP}
+                    ORDER BY nl.tenNL";
+            
             $result = $this->laydulieu($this->conn, $sql);
-            return $result;
+            return $result ? $result : array();
         } catch (Exception $e) {
             error_log("Lỗi getDinhMucNguyenLieuByKHSX: " . $e->getMessage());
             return array();

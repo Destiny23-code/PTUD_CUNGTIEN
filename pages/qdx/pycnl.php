@@ -33,10 +33,15 @@ $msg = "";
 
 // Lấy tham số
 $maKHSX_Selected = 0;
+$maSP_Selected = 0;
+
 if (isset($_POST['keHoachSX'])) {
-    $maKHSX_Selected = intval($_POST['keHoachSX']);
+    $parts = explode('_', $_POST['keHoachSX']);
+    $maKHSX_Selected = intval($parts[0]);
+    $maSP_Selected = isset($parts[1]) ? intval($parts[1]) : 0;
 } elseif (isset($_GET['maKHSX'])) {
     $maKHSX_Selected = intval($_GET['maKHSX']);
+    $maSP_Selected = isset($_GET['maSP']) ? intval($_GET['maSP']) : 0;
 }
 
 // Lấy dữ liệu từ CSDL
@@ -71,9 +76,9 @@ $dinhMucByKHSX = array();
 $thongTinKHSX = null;
 
 // Xử lý khi có KHSX được chọn
-if ($maKHSX_Selected > 0) {
-    $dinhMucByKHSX = $pycnl->getDinhMucNguyenLieuByKHSX($maKHSX_Selected);
-    $thongTinKHSX = $pycnl->getKeHoachSanXuatById($maKHSX_Selected);
+if ($maKHSX_Selected > 0 && $maSP_Selected > 0) {
+    $dinhMucByKHSX = $pycnl->getDinhMucNguyenLieuByMaSP($maSP_Selected);
+    $thongTinKHSX = $pycnl->getKeHoachSanXuatByMaSP($maKHSX_Selected, $maSP_Selected);
 }
 
 // Xử lý submit form
@@ -199,9 +204,12 @@ $maYeuCau_TuDong = "YE" . date("YmdHis");
                                                 $tenSP = isset($kh['tenSP']) ? $kh['tenSP'] : 'Chưa có tên SP';
                                                 $soLuong = isset($kh['soLuongCanSX']) ? number_format($kh['soLuongCanSX'], 0, ',', '.') : '0';
                                                 $maKH = isset($kh['maKHSX']) ? $kh['maKHSX'] : '';
+                                                $maSP = isset($kh['maSP']) ? $kh['maSP'] : '';
                                                 $ngayLap = isset($kh['ngayLap']) ? date('d/m/Y', strtotime($kh['ngayLap'])) : '';
+                                                $valueOption = $maKH . '_' . $maSP;
+                                                $selectedValue = $maKHSX_Selected . '_' . $maSP_Selected;
                                                 ?>
-                                                <option value="<?php echo $maKH; ?>" <?php echo ($maKHSX_Selected == $maKH) ? 'selected' : ''; ?>>
+                                                <option value="<?php echo $valueOption; ?>" <?php echo ($selectedValue == $valueOption) ? 'selected' : ''; ?>>
                                                     KHSX-<?php echo $maKH; ?> | <?php echo htmlspecialchars($tenSP); ?> | SL: <?php echo $soLuong; ?> | Ngày: <?php echo $ngayLap; ?>
                                                 </option>
                                             <?php endforeach; ?>
