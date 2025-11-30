@@ -2,63 +2,52 @@
 include_once('../../layout/giaodien/khotp.php');
 require_once('../../class/clsconnect.php');
 
-
-// SỬA: Dùng cách kết nối ổn định, không bị lỗi T_OBJECT_OPERATOR
 $ketnoi_instance = new ketnoi();
 $conn = $ketnoi_instance->connect();
 
-// CHỈ HIỆN BÁO CÁO ĐÃ CÓ KẾT QUẢ (Đạt hoặc Không đạt)
+// Truy vấn đã có ORDER BY maPKD DESC → mới nhất lên đầu
 $sql = "SELECT p.maPKD, p.ngayLap, p.nguoiLap, p.tieuChi, p.maLo, p.maPhieu, p.ketQuaBaoCao, 
-               l.maSP, l.ngaySX, l.soLuong as soLuongLo, sp.tenSP, sp.soLuongTon, sp.hanSuDung
+               l.maSP, l.ngaySX, l.soLuong AS soLuongLo, sp.tenSP
         FROM phieubaocaochatluong p 
         LEFT JOIN losanpham l ON p.maLo = l.maLo
         LEFT JOIN sanpham sp ON l.maSP = sp.maSP
-        WHERE p.ketQuaBaoCao IS NOT NULL 
-          AND p.ketQuaBaoCao != '' 
-          AND p.ketQuaBaoCao IN ('Đạt', 'Không đạt')
-        ORDER BY CAST(p.maPKD AS UNSIGNED) DESC";
+        ORDER BY p.maPKD DESC";  // Đảm bảo sắp xếp giảm dần theo mã báo cáo
 
 $res = $conn->query($sql);
-$rows = [];
+$rows = array();
+
 if ($res && $res->num_rows > 0) {
     while ($r = $res->fetch_assoc()) {
-        $r['hanSuDung_formatted'] = ($r['hanSuDung'] && $r['hanSuDung'] != '0000-00-00') 
-            ? date('d/m/Y', strtotime($r['hanSuDung'])) : 'Không xác định';
-        $r['soLuongLo_formatted'] = $r['soLuongLo'] ? number_format($r['soLuongLo']) . ' SP' : 'Chưa xác định';
+        
+        // Xử lý kết quả báo cáo
+        $ketqua = isset($r['ketQuaBaoCao']) ? trim($r['ketQuaBaoCao']) : '';
+        if ($ketqua == '' || $ketqua === null) {
+            $ketqua = 'Chưa có';
+        } elseif (stripos($ketqua, 'Đạt') !== false) {
+            $ketqua = 'Đạt';
+        } elseif (stripos($ketqua, 'Không đạt') !== false) {
+            $ketqua = 'Không đạt';
+        } else {
+            $ketqua = 'Khác';
+        }
+        $r['ketQuaBaoCao'] = $ketqua;
+
+        // Định dạng số lượng lô
+        if (isset($r['soLuongLo']) && is_numeric($r['soLuongLo']) && $r['soLuongLo'] > 0) {
+            $r['soLuongLo_formatted'] = number_format($r['soLuongLo']) . ' SP';
+        } else {
+            $r['soLuongLo_formatted'] = 'Chưa xác định';
+        }
+        
         $rows[] = $r;
     }
 }
 
+// Hàm escape HTML
 function e($value) {
-    return htmlspecialchars((string)($value ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 }
 ?>
-
-<style>
-.table-hover tbody tr:hover {
-    background-color: #f0f8ff;
-    cursor: pointer;
-}
-
-.tieu-chi ul {
-    margin: 0;
-    padding-left: 20px;
-}
-
-.tieu-chi li {
-    margin-bottom: 8px;
-}
-
-.badge {
-    padding: 0.4rem 0.8rem;
-    font-size: 0.9rem;
-}
-
-#ctSoLuongLo {
-    font-weight: bold;
-    color: #0d6efd;
-}
-</style>
 
 <div class="content">
     <div class="card shadow-sm p-4">
@@ -66,58 +55,54 @@ function e($value) {
             Kết quả báo cáo chất lượng
         </h5>
 
-        <div class="row g-2 mb-3">
-            <div class="col-md-3"><input type="text" id="timMaBaoCao" class="form-control"
-                    placeholder="Tìm theo mã báo cáo..."></div>
-            <div class="col-md-3"><input type="date" id="timNgayLap" class="form-control"></div>
-            <div class="col-md-2">
-                <select id="timTrangThai" class="form-select">
-                    <option value="">-- Tất cả --</option>
-                    <option value="Đạt">Đạt</option>
-                    <option value="Không đạt">Không đạt</option>
-                </select>
-            </div>
-            <div class="col-md-2"><button class="btn btn-primary w-100" onclick="locBaoCao()">Tìm kiếm</button></div>
-            <div class="col-md-2"><button class="btn btn-secondary w-100" onclick="hienThiBaoCao()">Đặt lại</button>
-            </div>
-        </div>
-
         <div class="table-responsive">
-            <table class="table table-bordered table-hover align-middle" id="baoCaoTable">
-                <thead class="table-primary text-center">
+            <table class="table table-bordered table-hover text-center align-middle">
+                <thead class="table-primary">
                     <tr>
-                        <th>Mã báo cáo</th>
-                        <th>Mã SP</th>
-                        <th>Tên SP</th>
-                        <th>Mã lô</th>
-                        <th>Số lượng</th>
-                        <th>Người lập</th>
-                        <th>Ngày lập</th>
-                        <th>Kết quả</th>
+                        <th width="8%">Mã báo cáo</th>
+                        <th width="8%">Mã SP</th>
+                        <th width="20%">Tên sản phẩm</th>
+                        <th width="8%">Mã lô</th>
+                        <th width="10%">Số lượng</th>
+                        <th width="15%">Người lập</th>
+                        <th width="12%">Ngày lập</th>
+                        <th width="10%">Kết quả</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($rows)): ?>
                     <tr>
-                        <td colspan="8" class="text-center text-muted">Chưa có báo cáo chất lượng nào được hoàn tất.
+                        <td colspan="8" class="text-center text-muted py-4">
+                            Chưa có dữ liệu báo cáo chất lượng.
                         </td>
                     </tr>
-                    <?php else: foreach($rows as $r): ?>
-                    <tr class="baocao-row" onclick='moChiTiet(<?= json_encode($r) ?>)' style="cursor:pointer;">
-                        <td><?= e($r['maPKD']) ?></td>
-                        <td><?= e($r['maSP']) ?></td>
-                        <td><?= e($r['tenSP']) ?></td>
-                        <td><?= e($r['maLo']) ?></td>
-                        <td class="text-center fw-bold text-primary"><?= $r['soLuongLo_formatted'] ?></td>
-                        <td><?= e($r['nguoiLap']) ?></td>
-                        <td><?= e($r['ngayLap']) ?></td>
-                        <td class="text-center">
-                            <span class="badge <?= $r['ketQuaBaoCao']==='Đạt' ? 'bg-success' : 'bg-danger' ?>">
-                                <?= e($r['ketQuaBaoCao']) ?>
+                    <?php else: ?>
+                    <?php foreach($rows as $r): ?>
+                    <tr style="cursor:pointer;" onclick='moChiTiet(<?php echo json_encode($r); ?>)'>
+                        <td><strong><?php echo e($r['maPKD']); ?></strong></td>
+                        <td><?php echo e($r['maSP']); ?></td>
+                        <td class="text-start"><?php echo e($r['tenSP']); ?></td>
+                        <td><?php echo e($r['maLo']); ?></td>
+                        <td class="text-primary fw-bold"><?php echo $r['soLuongLo_formatted']; ?></td>
+                        <td><?php echo e($r['nguoiLap']); ?></td>
+                        <td>
+                            <?php 
+                                if (!empty($r['ngayLap']) && $r['ngayLap'] != '0000-00-00') {
+                                    echo date('d/m/Y', strtotime($r['ngayLap']));
+                                } else {
+                                    echo '-';
+                                }
+                                ?>
+                        </td>
+                        <td>
+                            <span
+                                class="badge <?php echo ($r['ketQuaBaoCao'] == 'Đạt') ? 'bg-success' : 'bg-danger'; ?> px-3 py-2">
+                                <?php echo e($r['ketQuaBaoCao']); ?>
                             </span>
                         </td>
                     </tr>
-                    <?php endforeach; endif; ?>
+                    <?php endforeach; ?>
+                    <?php endif; ?>
                 </tbody>
             </table>
         </div>
@@ -126,24 +111,24 @@ function e($value) {
 
 <!-- Modal chi tiết -->
 <div class="modal fade" id="modalChiTiet" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title fw-bold">Chi tiết báo cáo chất lượng</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <table class="table table-bordered mb-4">
+                <table class="table table-bordered">
                     <tr>
                         <th width="30%">Mã báo cáo</th>
                         <td id="ctMaBaoCao"></td>
                     </tr>
                     <tr>
-                        <th>Mã SP</th>
+                        <th>Mã sản phẩm</th>
                         <td id="ctMaSP"></td>
                     </tr>
                     <tr>
-                        <th>Tên SP</th>
+                        <th>Tên sản phẩm</th>
                         <td id="ctTenSP"></td>
                     </tr>
                     <tr>
@@ -152,11 +137,7 @@ function e($value) {
                     </tr>
                     <tr>
                         <th>Số lượng lô</th>
-                        <td id="ctSoLuongLo" class="fw-bold text-primary"></td>
-                    </tr>
-                    <tr>
-                        <th>Hạn sử dụng</th>
-                        <td id="ctHanSuDung" class="text-danger fw-bold"></td>
+                        <td id="ctSoLuongLo"></td>
                     </tr>
                     <tr>
                         <th>Người lập</th>
@@ -167,81 +148,66 @@ function e($value) {
                         <td id="ctNgayLap"></td>
                     </tr>
                     <tr>
-                        <th>Kết quả</th>
-                        <td><span id="ctTrangThai" class="badge"></span></td>
+                        <th>Kết quả kiểm định</th>
+                        <td id="ctKetQua"></td>
                     </tr>
                 </table>
-                <div class="tieu-chi">
-                    <h6 class="fw-bold text-primary mb-2">Tiêu chí kiểm định:</h6>
-                    <div id="ctTieuChi"
-                        style="background:#f8f9fa;padding:15px;border-radius:8px;max-height:250px;overflow-y:auto;">
-                    </div>
+                <div class="mt-4">
+                    <strong class="text-primary">Tiêu chí kiểm định:</strong>
+                    <div id="ctTieuChi" class="border p-3 mt-2 bg-light"></div>
                 </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
             </div>
         </div>
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-const duLieuBaoCao = <?= json_encode($rows) ?>;
-
-function hienThiBaoCao(ds = duLieuBaoCao) {
-    const tbody = document.querySelector("#baoCaoTable tbody");
-    tbody.innerHTML = ds.length === 0 ?
-        '<tr><td colspan="8" class="text-center text-muted">Chưa có báo cáo chất lượng nào được hoàn tất.</td></tr>' :
-        '';
-    ds.forEach(bc => {
-        const badge = bc.ketQuaBaoCao === 'Đạt' ? 'bg-success' : 'bg-danger';
-        tbody.innerHTML += `<tr class="baocao-row" onclick='moChiTiet(${JSON.stringify(bc)})'>
-            <td>${bc.maPKD||''}</td>
-            <td>${bc.maSP||''}</td>
-            <td>${bc.tenSP||''}</td>
-            <td>${bc.maLo||''}</td>
-            <td class="text-center fw-bold text-primary">${bc.soLuongLo_formatted||'Chưa xác định'}</td>
-            <td>${bc.nguoiLap||''}</td>
-            <td>${bc.ngayLap||''}</td>
-            <td class="text-center"><span class="badge ${badge}">${bc.ketQuaBaoCao||''}</span></td>
-        </tr>`;
-    });
-}
-
-function locBaoCao() {
-    const ma = document.getElementById("timMaBaoCao").value.trim().toLowerCase();
-    const ngay = document.getElementById("timNgayLap").value;
-    const tt = document.getElementById("timTrangThai").value;
-
-    const filtered = duLieuBaoCao.filter(bc =>
-        (!ma || String(bc.maPKD || '').toLowerCase().includes(ma)) &&
-        (!ngay || bc.ngayLap === ngay) &&
-        (!tt || (bc.ketQuaBaoCao || '') === tt)
-    );
-    hienThiBaoCao(filtered);
-}
+<script type="text/javascript">
+var duLieuBaoCao = <?php echo json_encode($rows); ?>;
 
 function moChiTiet(bc) {
     document.getElementById("ctMaBaoCao").textContent = bc.maPKD || '';
     document.getElementById("ctMaSP").textContent = bc.maSP || '';
     document.getElementById("ctTenSP").textContent = bc.tenSP || '';
     document.getElementById("ctMaLo").textContent = bc.maLo || '';
-    document.getElementById("ctNguoiLap").textContent = bc.nguoiLap || '';
-    document.getElementById("ctNgayLap").textContent = bc.ngayLap || '';
     document.getElementById("ctSoLuongLo").textContent = bc.soLuongLo_formatted || 'Chưa xác định';
-    document.getElementById("ctHanSuDung").textContent = bc.hanSuDung_formatted || 'Không xác định';
+    document.getElementById("ctNguoiLap").textContent = bc.nguoiLap || '';
 
-    const badge = document.getElementById("ctTrangThai");
-    badge.textContent = bc.ketQuaBaoCao || '';
-    badge.className = 'badge ' + (bc.ketQuaBaoCao === 'Đạt' ? 'bg-success' : 'bg-danger');
+    // Định dạng ngày
+    var ngayLap = bc.ngayLap ? bc.ngayLap : '';
+    if (ngayLap && ngayLap !== '0000-00-00') {
+        var d = new Date(ngayLap);
+        ngayLap = ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2) + '/' + d.getFullYear();
+    } else {
+        ngayLap = '-';
+    }
+    document.getElementById("ctNgayLap").textContent = ngayLap;
 
-    const lines = (bc.tieuChi || '').split(/[,;]/).map(s => s.trim()).filter(s => s);
-    document.getElementById("ctTieuChi").innerHTML = lines.length > 1 ?
-        '<ul>' + lines.map(l => `<li>${l}</li>`).join('') + '</ul>' : (bc.tieuChi || 'Không có thông tin tiêu chí.');
+    // Kết quả
+    var badgeClass = (bc.ketQuaBaoCao === 'Đạt') ? 'bg-success' : 'bg-danger';
+    document.getElementById("ctKetQua").innerHTML =
+        '<span class="badge ' + badgeClass + ' px-3 py-2 fs-6">' + (bc.ketQuaBaoCao || 'Chưa có') + '</span>';
 
-    new bootstrap.Modal(document.getElementById("modalChiTiet")).show();
+    // Tiêu chí kiểm định
+    var tieuChi = bc.tieuChi || '';
+    var lines = tieuChi.split(/[\r\n,;]+/);
+    var html = '';
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].replace(/^\s+|\s+$/g, '');
+        if (line !== '') {
+            html += '<li class="mb-1">' + line + '</li>';
+        }
+    }
+    document.getElementById("ctTieuChi").innerHTML = (html !== '') ?
+        '<ul class="mb-0">' + html + '</ul>' :
+        '<em class="text-muted">Không có tiêu chí kiểm định</em>';
+
+    var modal = new bootstrap.Modal(document.getElementById('modalChiTiet'));
+    modal.show();
 }
-
-hienThiBaoCao();
-document.getElementById("timMaBaoCao").addEventListener("keypress", e => e.key === "Enter" && locBaoCao());
 </script>
 
 <?php include_once('../../layout/footer.php'); ?>

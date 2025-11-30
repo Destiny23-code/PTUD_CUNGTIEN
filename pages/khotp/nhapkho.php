@@ -9,15 +9,22 @@ if (!isset($_SESSION['hoTen'])) {
 
 $nk = new nhapkho();
 $dsLo = $nk->layLoNhapDuoc();
-$tongSoLuong = array_sum(array_column($dsLo, 'soLuong'));
 
-// Tạo mã phiếu
+// Tính tổng số lượng
+$tongSoLuong = 0;
+foreach ($dsLo as $lo) {
+    $tongSoLuong += (int)$lo['soLuong'];
+}
+
+// Tạo mã phiếu tự động
 require_once("../../class/clsconnect.php");
 $ketnoi_instance = new ketnoi();
 $conn = $ketnoi_instance->connect();
+
 $ngayHomNay = date('Ymd');
 $sqlMax = "SELECT maPNK FROM phieunhapkho WHERE maPNK LIKE 'PNK$ngayHomNay%' ORDER BY maPNK DESC LIMIT 1";
 $maPhieuMoi = "PNK$ngayHomNay-001";
+
 if ($result = $conn->query($sqlMax)) {
     if ($row = $result->fetch_assoc()) {
         $soHienTai = (int)substr($row['maPNK'], -3);
@@ -39,12 +46,13 @@ $conn->close();
         </div>
         <?php else: ?>
         <div class="alert alert-success text-center py-3">
-            Có <strong><?= count($dsLo) ?> lô</strong> đạt chất lượng – Tổng: <strong><?= number_format($tongSoLuong) ?>
-                sản phẩm</strong>
+            Có <strong><?php echo count($dsLo); ?> lô</strong> đạt chất lượng – Tổng:
+            <strong><?php echo number_format($tongSoLuong); ?> sản phẩm</strong>
         </div>
         <?php endif; ?>
 
-        <!-- Bảng lô -->
+        <!-- Bảng danh sách lô -->
+        <?php if (!empty($dsLo)): ?>
         <div class="table-responsive mb-4">
             <table class="table table-bordered table-hover text-center">
                 <thead class="table-primary">
@@ -60,11 +68,11 @@ $conn->close();
                 <tbody>
                     <?php foreach($dsLo as $row): ?>
                     <tr>
-                        <td class="fw-bold fs-5"><?= $row['maLo'] ?></td>
-                        <td><?= $row['maSP'] ?></td>
-                        <td><?= $row['tenSP'] ?></td>
-                        <td><?= date('d/m/Y', strtotime($row['ngaySX'])) ?></td>
-                        <td class="fw-bold text-primary fs-4"><?= number_format($row['soLuong']) ?></td>
+                        <td class="fw-bold fs-5"><?php echo $row['maLo']; ?></td>
+                        <td><?php echo $row['maSP']; ?></td>
+                        <td><?php echo htmlspecialchars($row['tenSP']); ?></td>
+                        <td><?php echo date('d/m/Y', strtotime($row['ngaySX'])); ?></td>
+                        <td class="fw-bold text-primary fs-4"><?php echo number_format($row['soLuong']); ?></td>
                         <td><span class="badge bg-success">Đạt</span></td>
                     </tr>
                     <?php endforeach; ?>
@@ -72,7 +80,6 @@ $conn->close();
             </table>
         </div>
 
-        <?php if (!empty($dsLo)): ?>
         <!-- Thông tin phiếu -->
         <div class="card border-success mb-4">
             <div class="card-header bg-success text-white">
@@ -82,20 +89,21 @@ $conn->close();
                 <div class="row g-3">
                     <div class="col-md-6">
                         <label class="form-label fw-bold">Mã phiếu</label>
-                        <div class="form-control fw-bold fs-4 text-success"><?= $maPhieuMoi ?></div>
+                        <div class="form-control fw-bold fs-4 text-success"><?php echo $maPhieuMoi; ?></div>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-bold">Tổng số lượng</label>
-                        <div class="form-control fw-bold fs-4 text-primary"><?= number_format($tongSoLuong) ?> sản phẩm
-                        </div>
+                        <div class="form-control fw-bold fs-4 text-primary"><?php echo number_format($tongSoLuong); ?>
+                            sản phẩm</div>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-bold">Người lập</label>
-                        <div class="form-control fw-bold"><?= $_SESSION['hoTen'] ?></div>
+                        <div class="form-control fw-bold"><?php echo $_SESSION['hoTen']; ?></div>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label fw-bold">Ngày nhập kho</label>
-                        <input type="date" id="ngayLap" class="form-control" value="<?= date('Y-m-d') ?>" required>
+                        <input type="date" id="ngayLap" class="form-control" value="<?php echo date('Y-m-d'); ?>"
+                            required>
                     </div>
                 </div>
                 <div class="text-end mt-4">
@@ -106,42 +114,72 @@ $conn->close();
             </div>
         </div>
         <?php endif; ?>
+    </div>
+</div>
 
-        <!-- Phiếu nhập kho (chỉ hiện khi thành công) -->
-        <div id="phieuNhapKho" class="card shadow mt-4 d-none">
-            <div class="card-body p-5" id="noiDungPhieu"></div>
+<!-- MODAL PHIẾU NHẬP KHO – CÓ NÚT X + IN -->
+<div class="modal fade" id="modalPhieuNhap" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 border-success border-3">
+            <div class="modal-header bg-success text-white">
+                <h4 class="modal-title fw-bold">PHIẾU NHẬP KHO THÀNH PHẨM</h4>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4" id="noiDungPhieuNhap">
+                <!-- Nội dung sẽ được JS chèn vào -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-primary btn-lg" onclick="window.print()">
+                    In Phiếu Nhập Kho
+                </button>
+            </div>
         </div>
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-document.getElementById("btnNhapKho")?.addEventListener("click", function() {
-    if (!confirm("Xác nhận nhập kho tất cả lô?")) return;
+document.getElementById('btnNhapKho').onclick = function() {
+    if (!confirm('Xác nhận nhập kho tất cả các lô đạt chất lượng?')) return;
 
-    const formData = new FormData();
-    document.querySelectorAll("tbody tr").forEach(row => {
-        const maLo = row.cells[0].textContent.trim();
-        formData.append('dsLo[]', maLo);
+    var dsLo = [];
+    document.querySelectorAll('tbody tr').forEach(function(row) {
+        var maLo = row.cells[0].textContent.trim();
+        dsLo.push(maLo);
     });
-    formData.append('ngayLap', document.getElementById("ngayLap").value);
+
+    var formData = new FormData();
+    for (var i = 0; i < dsLo.length; i++) {
+        formData.append('dsLo[]', dsLo[i]);
+    }
+    formData.append('ngayLap', document.getElementById('ngayLap').value);
 
     fetch('xuly_nhapkho.php', {
             method: 'POST',
             body: formData
         })
-        .then(r => r.json())
-        .then(data => {
+        .then(function(r) {
+            return r.json();
+        })
+        .then(function(data) {
             if (data.status === 'success') {
-                document.getElementById("noiDungPhieu").innerHTML = data.html;
-                document.getElementById("phieuNhapKho").classList.remove('d-none');
-                alert("Nhập kho thành công!");
-                setTimeout(() => location.reload(), 3000);
+                document.getElementById('noiDungPhieuNhap').innerHTML = data.html;
+                var modal = new bootstrap.Modal(document.getElementById('modalPhieuNhap'));
+                modal.show();
+
+                // Khi đóng modal → reload trang
+                document.getElementById('modalPhieuNhap').addEventListener('hidden.bs.modal', function() {
+                    location.reload();
+                });
             } else {
-                alert("Lỗi: " + data.message);
+                alert('Lỗi: ' + data.message);
             }
         })
-        .catch(() => alert("Lỗi kết nối!"));
-});
+        .catch(function() {
+            alert('Lỗi kết nối đến server!');
+        });
+};
 </script>
 
 <?php include_once('../../layout/footer.php'); ?>
