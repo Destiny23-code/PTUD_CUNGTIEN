@@ -31,7 +31,12 @@ $trangThai = isset($_GET['trangThai']) ? $_GET['trangThai'] : '';
 $tieuChi   = isset($_GET['tieuChi']) ? $_GET['tieuChi'] : '';
 
 // Xử lý danh sách tiêu chí
-$tieuChiList = preg_split('/[,;\n]+/', $tieuChi, -1, PREG_SPLIT_NO_EMPTY);
+$tieuChiList = preg_split('/[.\n]+/', $tieuChi, -1, PREG_SPLIT_NO_EMPTY);
+
+// Nếu phần tử cuối cùng là rỗng thì xóa
+if (!empty($tieuChiList) && trim(end($tieuChiList)) === '') {
+  array_pop($tieuChiList);
+}
 
 // Xử lý POST khi bấm "Lập phiếu"
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
