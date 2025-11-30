@@ -49,7 +49,7 @@ SELECT
     p.maPhieu, 
     p.ngayLap, 
     p.nguoiLap, 
-    t.tieuChi, 
+    s.tieuChiKiemDinh as tieuChi, 
     p.maLo, 
     p.trangThai,
     l.ngaySX, 
@@ -58,7 +58,6 @@ SELECT
 FROM losanpham AS l
     INNER JOIN phieuyeucaukiemdinh AS p ON l.maLo = p.maLo
     INNER JOIN sanpham AS s ON l.maSP = s.maSP
-    INNER JOIN tieuchikiemdinh AS t ON s.maLoai = t.maLoai
 {$where}
 ORDER BY 
     p.ngayLap DESC
@@ -205,7 +204,7 @@ $stt = 1;
                                          style='background-color: #e7f3ff; border: 1px solid #b3d7ff;'>
                                       <strong>Tiêu Chí:</strong><br>
                                       <div class='mt-2'>
-                                        " . nl2br(htmlspecialchars($row['tieuChi'])) . "
+                                        " . nl2br(str_replace('.', ".\n", htmlspecialchars($row['tieuChi']))) . "
                                       </div>
                                     </div>
 
