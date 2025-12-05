@@ -155,7 +155,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     <option value="">Tất cả</option>
                     
                     <?php 
-                    $status_options = array('Mới tạo', 'Đang sản xuất', 'Hoàn thành', 'Đã hủy');
+                    $status_options = array('Mới tạo', 'Chờ xử lý', 'Đang sản xuất', 'Hoàn thành', 'Đã hủy');
                     // $current_status đã được đổi tên thành $trangThai
                     foreach ($status_options as $status) {
                         $selected = ($trangThai == $status) ? 'selected' : '';
@@ -201,6 +201,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                             $badgeClass = 'bg-secondary';
                             if ($row['trangThai'] == 'Hoàn thành') {
                                 $badgeClass = 'bg-success';
+                            } elseif ($row['trangThai'] == 'Chờ xử lý') {
+                                $badgeClass = 'bg-secondary text-white';   
                             } elseif ($row['trangThai'] == 'Đang sản xuất') {
                                 $badgeClass = 'bg-warning text-dark';
                             } elseif ($row['trangThai'] == 'Mới tạo') {

@@ -10,21 +10,18 @@ if (!isset($_SESSION['hoTen'])) {
 $nk = new nhapkho();
 $dsLo = $nk->layLoNhapDuoc();
 
-// Tính tổng số lượng
 $tongSoLuong = 0;
 foreach ($dsLo as $lo) {
     $tongSoLuong += (int)$lo['soLuong'];
 }
 
-// Tạo mã phiếu tự động
+// Tạo mã phiếu tự động (giữ nguyên logic cũ của bạn)
 require_once("../../class/clsconnect.php");
 $ketnoi_instance = new ketnoi();
 $conn = $ketnoi_instance->connect();
-
 $ngayHomNay = date('Ymd');
 $sqlMax = "SELECT maPNK FROM phieunhapkho WHERE maPNK LIKE 'PNK$ngayHomNay%' ORDER BY maPNK DESC LIMIT 1";
 $maPhieuMoi = "PNK$ngayHomNay-001";
-
 if ($result = $conn->query($sqlMax)) {
     if ($row = $result->fetch_assoc()) {
         $soHienTai = (int)substr($row['maPNK'], -3);
@@ -107,7 +104,8 @@ $conn->close();
                     </div>
                 </div>
                 <div class="text-end mt-4">
-                    <button type="button" id="btnNhapKho" class="btn btn-success btn-lg px-5 shadow">
+                    <button type="button" class="btn btn-success btn-lg px-5 shadow" data-bs-toggle="modal"
+                        data-bs-target="#modalXacNhan">
                         XÁC NHẬN NHẬP KHO TẤT CẢ
                     </button>
                 </div>
@@ -117,7 +115,28 @@ $conn->close();
     </div>
 </div>
 
-<!-- MODAL PHIẾU NHẬP KHO – CÓ NÚT X + IN -->
+<!-- MODAL XÁC NHẬN NHẬP KHO (Thay thế confirm() cũ) -->
+<div class="modal fade" id="modalXacNhan" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold">XÁC NHẬN NHẬP KHO</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center py-4">
+
+                <h5 class="mt-3">Xác nhận nhập kho tất cả các lô đạt chất lượng?</h5>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" id="btnXacNhanThucHien" class="btn btn-success btn-lg px-5">Xác nhận nhập
+                    kho</button>
+                <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Hủy</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL PHIẾU NHẬP KHO (giữ nguyên như cũ) -->
 <div class="modal fade" id="modalPhieuNhap" tabindex="-1">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 border-success border-3">
@@ -125,14 +144,10 @@ $conn->close();
                 <h4 class="modal-title fw-bold">PHIẾU NHẬP KHO THÀNH PHẨM</h4>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body p-4" id="noiDungPhieuNhap">
-                <!-- Nội dung sẽ được JS chèn vào -->
-            </div>
+            <div class="modal-body p-4" id="noiDungPhieuNhap"></div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
-                <button type="button" class="btn btn-primary btn-lg" onclick="window.print()">
-                    In Phiếu Nhập Kho
-                </button>
+                <button type="button" class="btn btn-primary btn-lg" onclick="window.print()">In Phiếu Nhập Kho</button>
             </div>
         </div>
     </div>
@@ -140,9 +155,12 @@ $conn->close();
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-document.getElementById('btnNhapKho').onclick = function() {
-    if (!confirm('Xác nhận nhập kho tất cả các lô đạt chất lượng?')) return;
+document.getElementById('btnXacNhanThucHien').addEventListener('click', function() {
+    // Đóng modal xác nhận
+    var modalXacNhan = bootstrap.Modal.getInstance(document.getElementById('modalXacNhan'));
+    modalXacNhan.hide();
 
+    // Thu thập danh sách mã lô
     var dsLo = [];
     document.querySelectorAll('tbody tr').forEach(function(row) {
         var maLo = row.cells[0].textContent.trim();
@@ -159,16 +177,13 @@ document.getElementById('btnNhapKho').onclick = function() {
             method: 'POST',
             body: formData
         })
-        .then(function(r) {
-            return r.json();
-        })
-        .then(function(data) {
+        .then(r => r.json())
+        .then(data => {
             if (data.status === 'success') {
                 document.getElementById('noiDungPhieuNhap').innerHTML = data.html;
-                var modal = new bootstrap.Modal(document.getElementById('modalPhieuNhap'));
-                modal.show();
+                var modalPhieu = new bootstrap.Modal(document.getElementById('modalPhieuNhap'));
+                modalPhieu.show();
 
-                // Khi đóng modal → reload trang
                 document.getElementById('modalPhieuNhap').addEventListener('hidden.bs.modal', function() {
                     location.reload();
                 });
@@ -176,10 +191,10 @@ document.getElementById('btnNhapKho').onclick = function() {
                 alert('Lỗi: ' + data.message);
             }
         })
-        .catch(function() {
+        .catch(() => {
             alert('Lỗi kết nối đến server!');
         });
-};
+});
 </script>
 
 <?php include_once('../../layout/footer.php'); ?>

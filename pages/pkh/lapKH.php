@@ -17,11 +17,38 @@ if (isset($_POST['action']) && $_POST['action'] === 'save_plan') {
     $ngayKetThuc = $_POST['ngayKetThuc']; 
     $ghiChu = $_POST['ghiChu'];
 
+    // === VALIDATION NGÀY ===
+    $today = date('Y-m-d');
+    $startDate = strtotime($ngayBatDau);
+    $endDate = strtotime($ngayKetThuc);
+    
+    // Kiểm tra ngày bắt đầu không nhỏ hơn hôm nay
+    if ($ngayBatDau < $today) {
+        echo "<script>
+            alert('❌ Ngày bắt đầu không được nhỏ hơn ngày hiện tại!');
+            window.history.back();
+        </script>";
+        exit;
+    }
+    
+    // Kiểm tra ngày kết thúc phải lớn hơn ngày bắt đầu ít nhất 3 ngày
+    $diffDays = ($endDate - $startDate) / (60 * 60 * 24);
+    if ($diffDays < 3) {
+        echo "<script>
+            alert('❌ Ngày kết thúc phải lớn hơn ngày bắt đầu ít nhất 3 ngày!');
+            window.history.back();
+        </script>";
+        exit;
+    }
+
     $loSanPhamData = isset($_POST['loSanPham']) ? $_POST['loSanPham'] : array();
     $phuongAnNLData = isset($_POST['phuongAnNL']) ? $_POST['phuongAnNL'] : array();
 
     if (empty($maSP_lapKH) || empty($loSanPhamData)) {
-        echo "<script>alert('❌ Vui lòng chọn sản phẩm và đảm bảo có lô sản xuất để lập kế hoạch!');</script>";
+        echo "<script>
+            alert('❌ Vui lòng chọn sản phẩm và đảm bảo có lô sản xuất để lập kế hoạch!');
+            window.history.back();
+        </script>";
     } else {
         // Tạo kế hoạch chung
         $ghiChuKH = $ghiChu . " Kế hoạch chung cho SP: $maSP_lapKH, ĐH: $maDH";
@@ -74,10 +101,16 @@ if (isset($_POST['action']) && $_POST['action'] === 'save_plan') {
                     window.location.href = window.location.pathname + '?chonDH=' + '{$maDH}';
                 </script>";
             } else {
-                echo "<script>alert('❌ Lưu chi tiết nguyên liệu thất bại! Đã tạo KHSX mã {$maKHSX} nhưng không có lô nào được lưu.');</script>";
+                echo "<script>
+                    alert('❌ Lưu chi tiết nguyên liệu thất bại! Đã tạo KHSX mã {$maKHSX} nhưng không có lô nào được lưu.');
+                    window.history.back();
+                </script>";
             }
         } else {
-            echo "<script>alert('❌ Lưu kế hoạch thất bại! Lỗi kết nối CSDL hoặc dữ liệu.');</script>";
+            echo "<script>
+                alert('❌ Lưu kế hoạch thất bại! Lỗi kết nối CSDL hoặc dữ liệu.');
+                window.history.back();
+            </script>";
         }
     }
 }
@@ -317,7 +350,7 @@ if ($maDH_chon != '') {
     <div id="plan-form-container" class="card shadow-sm">
         <div class="card-header bg-primary text-white fw-bold">Thiết lập kế hoạch sản xuất</div>
         <div class="card-body">
-            <form method="post"> 
+            <form method="post" id="planForm"> 
                 <input type="hidden" name="chonDH" value="<?php echo htmlspecialchars($maDH_chon); ?>"> 
                 <input type="hidden" name="chonSP" value="<?php echo htmlspecialchars($maSP_chon); ?>"> 
 
@@ -337,14 +370,22 @@ if ($maDH_chon != '') {
                     </div>
                 </div>
 
-                <div class="row">
+                <div class="row mb-3">
                     <div class="col-md-4">
-                        <label class="form-label fw-semibold">Ngày bắt đầu</label>
-                        <input type="date" class="form-control" name="ngayBatDau" required>
+                        <label class="form-label fw-semibold">Ngày bắt đầu <span class="text-danger">*</span></label>
+                        <input type="date" class="form-control" name="ngayBatDau" id="ngayBatDau" required
+                               min="<?php echo date('Y-m-d'); ?>">
+                        <div class="form-text text-muted small">Ngày bắt đầu phải từ hôm nay trở đi</div>
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label fw-semibold">Ngày kết thúc</label>
-                        <input type="date" class="form-control" name="ngayKetThuc" required>
+                        <label class="form-label fw-semibold">Ngày kết thúc <span class="text-danger">*</span></label>
+                        <input type="date" class="form-control" name="ngayKetThuc" id="ngayKetThuc" required>
+                        <div class="form-text text-muted small">Ngày kết thúc phải sau ngày bắt đầu ít nhất 3 ngày</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Số ngày sản xuất</label>
+                        <input type="text" class="form-control" id="soNgaySX" value="0" readonly>
+                        <div class="form-text text-muted small">Tự động tính khi chọn ngày</div>
                     </div>
                 </div>
 
@@ -446,7 +487,7 @@ if ($maDH_chon != '') {
                                         echo '<td class="' . ($thieuHut > 0 ? 'text-danger fw-bold' : '') . '">' . $thieuHut . '</td>';
                                         echo '<td>
                                                 <select class="form-select form-select-sm" name="phuongAnNL[' . htmlspecialchars($maLo) . '][' . htmlspecialchars($nl['maNL']) . ']">
-                                                    <option value="co_san">Đủ (Có sẵn)</option>
+                                                    <option value="co_san"' . ($thieuHut <= 0 ? ' selected' : '') . '>Đủ (Có sẵn)</option>
                                                     <option value="mua_moi"' . ($thieuHut > 0 ? ' selected' : '') . '>Mua bổ sung</option>
                                                     <option value="dieu_chuyen">Điều chuyển kho</option>
                                                 </select>
@@ -471,7 +512,7 @@ if ($maDH_chon != '') {
 
                 <div class="mt-3">
                     <label class="form-label fw-semibold">Ghi chú</label>
-                    <textarea class="form-control" name="ghiChu" rows="3" placeholder="Nhập ghi chú..."></textarea>
+                    <textarea class="form-control" name="ghiChu" rows="3" placeholder="Nhập ghi chú về kế hoạch sản xuất..."></textarea>
                 </div>
 
         
@@ -480,6 +521,10 @@ if ($maDH_chon != '') {
                     <button type="submit" name="action" value="save_plan" class="btn btn-success">Lưu kế hoạch</button>
                 </div>
                 
+                <?php else: ?>
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>Vui lòng chọn một sản phẩm để xem chi tiết phân lô sản xuất.
+                    </div>
                 <?php endif; ?>
                 
             </form>
@@ -490,5 +535,152 @@ if ($maDH_chon != '') {
     <?php echo isset($list_modal) ? $list_modal : ''; ?>
 
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ngayBatDauInput = document.getElementById('ngayBatDau');
+    const ngayKetThucInput = document.getElementById('ngayKetThuc');
+    const soNgaySXInput = document.getElementById('soNgaySX');
+    const planForm = document.getElementById('planForm');
+    
+    // Hàm tính số ngày giữa hai ngày
+    function tinhSoNgay(startDate, endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const diffTime = end - start;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays;
+    }
+    
+    // Hàm định dạng ngày
+    function formatDate(dateStr) {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('vi-VN');
+    }
+    
+    // Xử lý khi ngày bắt đầu thay đổi
+    if (ngayBatDauInput) {
+        // Set min cho ngày bắt đầu là hôm nay
+        ngayBatDauInput.min = new Date().toISOString().split('T')[0];
+        
+        ngayBatDauInput.addEventListener('change', function() {
+            if (this.value) {
+                // Tính ngày tối thiểu cho ngày kết thúc (+3 ngày)
+                const minEndDate = new Date(this.value);
+                minEndDate.setDate(minEndDate.getDate() + 3);
+                
+                const minEndDateStr = minEndDate.toISOString().split('T')[0];
+                ngayKetThucInput.min = minEndDateStr;
+                ngayKetThucInput.value = ''; // Reset ngày kết thúc
+                
+                // Hiển thị thông báo
+                const formattedDate = formatDate(minEndDateStr);
+                ngayKetThucInput.setAttribute('placeholder', `Từ ${formattedDate} trở đi`);
+                soNgaySXInput.value = '0';
+                
+                // Focus vào ngày kết thúc
+                ngayKetThucInput.focus();
+            }
+        });
+    }
+    
+    // Xử lý khi ngày kết thúc thay đổi
+    if (ngayKetThucInput) {
+        ngayKetThucInput.addEventListener('change', function() {
+            if (ngayBatDauInput.value && this.value) {
+                const startDate = new Date(ngayBatDauInput.value);
+                const endDate = new Date(this.value);
+                const diffDays = tinhSoNgay(ngayBatDauInput.value, this.value);
+                
+                if (diffDays < 3) {
+                    alert('❌ Ngày kết thúc phải lớn hơn ngày bắt đầu ít nhất 3 ngày!');
+                    
+                    // Tính ngày tối thiểu
+                    const minEndDate = new Date(startDate);
+                    minEndDate.setDate(minEndDate.getDate() + 3);
+                    this.value = minEndDate.toISOString().split('T')[0];
+                    
+                    // Tính lại số ngày
+                    soNgaySXInput.value = tinhSoNgay(ngayBatDauInput.value, this.value);
+                } else {
+                    soNgaySXInput.value = diffDays;
+                }
+            }
+        });
+    }
+    
+    // Xử lý khi cả hai ngày đều có giá trị (tính toán ban đầu)
+    if (ngayBatDauInput.value && ngayKetThucInput.value) {
+        const diffDays = tinhSoNgay(ngayBatDauInput.value, ngayKetThucInput.value);
+        soNgaySXInput.value = diffDays;
+    }
+    
+    // Validation khi submit form
+    if (planForm) {
+        planForm.addEventListener('submit', function(e) {
+            // Kiểm tra các trường bắt buộc
+            if (!ngayBatDauInput.value || !ngayKetThucInput.value) {
+                alert('❌ Vui lòng nhập đầy đủ ngày bắt đầu và ngày kết thúc!');
+                e.preventDefault();
+                return false;
+            }
+            
+            // Kiểm tra ngày bắt đầu không nhỏ hơn hôm nay
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const startDate = new Date(ngayBatDauInput.value);
+            
+            if (startDate < today) {
+                alert('❌ Ngày bắt đầu không được nhỏ hơn ngày hiện tại!');
+                e.preventDefault();
+                ngayBatDauInput.focus();
+                return false;
+            }
+            
+            // Kiểm tra ngày kết thúc phải lớn hơn ngày bắt đầu ít nhất 3 ngày
+            const endDate = new Date(ngayKetThucInput.value);
+            const diffDays = tinhSoNgay(ngayBatDauInput.value, ngayKetThucInput.value);
+            
+            if (diffDays < 3) {
+                alert('❌ Ngày kết thúc phải lớn hơn ngày bắt đầu ít nhất 3 ngày!');
+                e.preventDefault();
+                ngayKetThucInput.focus();
+                return false;
+            }
+            
+            // Kiểm tra đã chọn sản phẩm chưa
+            const selectedProduct = document.querySelector('input[name="chonSP"]:checked');
+            if (!selectedProduct) {
+                alert('❌ Vui lòng chọn sản phẩm để lập kế hoạch!');
+                e.preventDefault();
+                return false;
+            }
+            
+            // Hiển thị xác nhận
+            const confirmed = confirm('Bạn có chắc chắn muốn lưu kế hoạch sản xuất này?');
+            if (!confirmed) {
+                e.preventDefault();
+                return false;
+            }
+            
+            return true;
+        });
+    }
+    
+    // Xử lý reset form
+    const resetBtn = planForm ? planForm.querySelector('button[type="reset"]') : null;
+    if (resetBtn) {
+        resetBtn.addEventListener('click', function() {
+            setTimeout(() => {
+                soNgaySXInput.value = '0';
+                if (ngayKetThucInput) {
+                    ngayKetThucInput.removeAttribute('placeholder');
+                    ngayKetThucInput.removeAttribute('min');
+                }
+            }, 100);
+        });
+    }
+});
+</script>
 
 <?php include_once("../../layout/footer.php"); ?>

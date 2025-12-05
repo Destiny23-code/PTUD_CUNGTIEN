@@ -255,17 +255,19 @@ class KeHoachModel extends ketnoi {
             $where = ' WHERE ' . implode(' AND ', $where_clauses);
         }
         
-        // 3️⃣ Xây dựng câu truy vấn SQL
+        // 3️⃣ Xây dựng câu truy vấn SQL (THÊM $where vào đây)
         $sql = "SELECT maKHSX, maDH, nguoiLap, ngayLap, ngayBDDK, ngayKTDK, trangThai, ghiChu, lyDoTuChoi
-                FROM KEHOACHSANXUAT";
+                FROM KEHOACHSANXUAT" . $where . " ORDER BY ngayLap DESC";
 
+        // DEBUG: Hiển thị câu SQL để kiểm tra
+        // echo "SQL: " . $sql; // Bỏ comment dòng này để debug
+        
         // 4️⃣ Lấy dữ liệu, đóng kết nối và trả về
         $data = $this->laydulieu($link, $sql);
         $link->close();
         
         return $data;
     }
-
 
 
 
@@ -484,73 +486,73 @@ class KeHoachModel extends ketnoi {
     }
 
     public function getLoSanPhamTheoKHSXVaSP($maKHSX, $maSP) {
-    $link = $this->connect();
-    $maKHSX_safe = $link->real_escape_string($maKHSX);
-    $maSP_safe = $link->real_escape_string($maSP);
-    
-    // Lấy các lô sản phẩm từ CHITIET_KHSX (vì bảng losanpham không có maKHSX)
-    $sql = "SELECT DISTINCT nlct.maLo, lp.ngaySX, lp.soLuong, lp.trangThai
-            FROM CHITIET_KHSX nlct
-            LEFT JOIN losanpham lp ON nlct.maLo = lp.maLo
-            WHERE nlct.maKHSX = '$maKHSX_safe' 
-            AND nlct.maSP = '$maSP_safe'
-            ORDER BY nlct.maLo";
-    
-    $data = $this->laydulieu($link, $sql);
-    $link->close();
-    
-    return is_array($data) ? $data : array();
-}
-
-public function getChiTietKeHoach($maKHSX) {
-    $link = $this->connect();
-    $maKHSX_safe = mysqli_real_escape_string($link, $maKHSX);
-
-    // Lấy thông tin kế hoạch
-    $sqlKH = "SELECT * FROM KEHOACHSANXUAT WHERE maKHSX='$maKHSX_safe'";
-    $resKH = mysqli_query($link, $sqlKH);
-    $info = ($resKH && mysqli_num_rows($resKH) > 0) ? mysqli_fetch_assoc($resKH) : array();
-
-    $dsSP = array();
-    $dsNL = array();
-
-    if (!empty($info)) {
-        // Lấy sản phẩm trong đơn hàng
-        $sqlSP = "SELECT cdh.maSP, s.tenSP, s.donViTinh, cdh.soLuong
-                  FROM CHITIET_DONHANG cdh
-                  JOIN SANPHAM s ON cdh.maSP = s.maSP
-                  WHERE cdh.maDH='" . mysqli_real_escape_string($link, $info['maDH']) . "'";
-        $resSP = mysqli_query($link, $sqlSP);
-        if ($resSP) {
-            while ($r = mysqli_fetch_assoc($resSP)) {
-                $dsSP[] = $r;
-            }
-            mysqli_free_result($resSP);
-        }
-
-        // Lấy nguyên liệu cho kế hoạch - THÊM maLo vào SELECT
-        $sqlNL = "SELECT nlct.maKHSX, nlct.maSP, nlct.maNL, nl.tenNL, nl.donViTinh,
-                         nlct.soLuong1SP, nlct.tongSLCan, nlct.slTonTaiKho, nlct.slThieuHut, 
-                         nlct.phuongAnXuLy, nlct.maLo
-                  FROM CHITIET_KHSX nlct
-                  LEFT JOIN NGUYENLIEU nl ON nlct.maNL = nl.maNL
-                  WHERE nlct.maKHSX='$maKHSX_safe'";
-        $resNL = mysqli_query($link, $sqlNL);
-        if ($resNL) {
-            while ($r = mysqli_fetch_assoc($resNL)) {
-                $dsNL[] = $r;
-            }
-            mysqli_free_result($resNL);
-        }
+        $link = $this->connect();
+        $maKHSX_safe = $link->real_escape_string($maKHSX);
+        $maSP_safe = $link->real_escape_string($maSP);
+        
+        // Lấy các lô sản phẩm từ CHITIET_KHSX (vì bảng losanpham không có maKHSX)
+        $sql = "SELECT DISTINCT nlct.maLo, lp.ngaySX, lp.soLuong, lp.trangThai
+                FROM CHITIET_KHSX nlct
+                LEFT JOIN losanpham lp ON nlct.maLo = lp.maLo
+                WHERE nlct.maKHSX = '$maKHSX_safe' 
+                AND nlct.maSP = '$maSP_safe'
+                ORDER BY nlct.maLo";
+        
+        $data = $this->laydulieu($link, $sql);
+        $link->close();
+        
+        return is_array($data) ? $data : array();
     }
 
-    mysqli_close($link);
-    return array(
-        'thongtin'   => $info,
-        'sanpham'    => $dsSP,
-        'nguyenlieu' => $dsNL
-    );
-}
+    public function getChiTietKeHoach($maKHSX) {
+        $link = $this->connect();
+        $maKHSX_safe = mysqli_real_escape_string($link, $maKHSX);
+
+        // Lấy thông tin kế hoạch
+        $sqlKH = "SELECT * FROM KEHOACHSANXUAT WHERE maKHSX='$maKHSX_safe'";
+        $resKH = mysqli_query($link, $sqlKH);
+        $info = ($resKH && mysqli_num_rows($resKH) > 0) ? mysqli_fetch_assoc($resKH) : array();
+
+        $dsSP = array();
+        $dsNL = array();
+
+        if (!empty($info)) {
+            // Lấy sản phẩm trong đơn hàng
+            $sqlSP = "SELECT cdh.maSP, s.tenSP, s.donViTinh, cdh.soLuong
+                    FROM CHITIET_DONHANG cdh
+                    JOIN SANPHAM s ON cdh.maSP = s.maSP
+                    WHERE cdh.maDH='" . mysqli_real_escape_string($link, $info['maDH']) . "'";
+            $resSP = mysqli_query($link, $sqlSP);
+            if ($resSP) {
+                while ($r = mysqli_fetch_assoc($resSP)) {
+                    $dsSP[] = $r;
+                }
+                mysqli_free_result($resSP);
+            }
+
+            // Lấy nguyên liệu cho kế hoạch - THÊM maLo vào SELECT
+            $sqlNL = "SELECT nlct.maKHSX, nlct.maSP, nlct.maNL, nl.tenNL, nl.donViTinh,
+                            nlct.soLuong1SP, nlct.tongSLCan, nlct.slTonTaiKho, nlct.slThieuHut, 
+                            nlct.phuongAnXuLy, nlct.maLo
+                    FROM CHITIET_KHSX nlct
+                    LEFT JOIN NGUYENLIEU nl ON nlct.maNL = nl.maNL
+                    WHERE nlct.maKHSX='$maKHSX_safe'";
+            $resNL = mysqli_query($link, $sqlNL);
+            if ($resNL) {
+                while ($r = mysqli_fetch_assoc($resNL)) {
+                    $dsNL[] = $r;
+                }
+                mysqli_free_result($resNL);
+            }
+        }
+
+        mysqli_close($link);
+        return array(
+            'thongtin'   => $info,
+            'sanpham'    => $dsSP,
+            'nguyenlieu' => $dsNL
+        );
+    }
     
 }
 ?>

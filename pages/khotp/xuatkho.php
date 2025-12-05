@@ -115,7 +115,8 @@ body {
             </div>
 
             <div class="text-end mt-4">
-                <button type="button" id="btnXuat" class="btn btn-success shadow-lg">
+                <button type="button" class="btn btn-success shadow-lg" data-bs-toggle="modal"
+                    data-bs-target="#modalXacNhanXuat">
                     XUẤT KHO ĐỦ ĐƠN HÀNG
                 </button>
             </div>
@@ -124,23 +125,38 @@ body {
     </div>
 </div>
 
-<!-- MODAL PHIẾU XUẤT KHO - CÓ NÚT X ĐÓNG -->
+<!-- MODAL XÁC NHẬN XUẤT KHO (Thay thế confirm cũ) -->
+<div class="modal fade" id="modalXacNhanXuat" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title fw-bold">XÁC NHẬN XUẤT KHO</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center py-5">
+                <h5 class="mt-4">Bạn có chắc chắn muốn xuất kho <span id="soMucChon">0</span> mục đã chọn?</h5>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" id="btnXacNhanXuatThuc" class="btn btn-danger btn-lg px-5">Xác nhận xuất
+                    kho</button>
+                <button type="button" class="btn btn-secondary px-5" data-bs-dismiss="modal">Hủy bỏ</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL PHIẾU XUẤT KHO -->
 <div class="modal fade" id="modalPhieuXuat" tabindex="-1">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-success text-white">
                 <h4 class="modal-title fw-bold">PHIẾU XUẤT KHO</h4>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                    aria-label="Close"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body p-4" id="noiDungPhieu">
-                <!-- Nội dung phiếu sẽ được chèn bằng JS -->
-            </div>
+            <div class="modal-body p-4" id="noiDungPhieu"></div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
-                <button type="button" class="btn btn-primary" onclick="window.print()">
-                    In Phiếu Xuất Kho
-                </button>
+                <button type="button" class="btn btn-primary btn-lg" onclick="window.print()">In Phiếu Xuất Kho</button>
             </div>
         </div>
     </div>
@@ -148,18 +164,29 @@ body {
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-// Click dòng chọn checkbox
 document.querySelectorAll('.donhang-row').forEach(function(row) {
     row.onclick = function(e) {
         if (e.target.tagName === 'INPUT') return;
         var cb = row.querySelector('.donhang-checkbox');
         cb.checked = !cb.checked;
         row.classList.toggle('table-active', cb.checked);
+        capNhatSoLuongChon();
     };
 });
 
-// Nút xuất kho
-document.getElementById('btnXuat').onclick = function() {
+function capNhatSoLuongChon() {
+    var count = document.querySelectorAll('.donhang-checkbox:checked').length;
+    document.getElementById('soMucChon').textContent = count;
+}
+
+// Cập nhật số lượng khi mở modal xác nhận
+var modalXacNhan = document.getElementById('modalXacNhanXuat');
+modalXacNhan.addEventListener('show.bs.modal', function() {
+    capNhatSoLuongChon();
+});
+
+// Nút xác nhận thực sự xuất kho
+document.getElementById('btnXacNhanXuatThuc').addEventListener('click', function() {
     var items = [];
     document.querySelectorAll('.donhang-checkbox:checked').forEach(function(cb) {
         var v = cb.value.split('_');
@@ -172,11 +199,13 @@ document.getElementById('btnXuat').onclick = function() {
     });
 
     if (items.length === 0) {
-        alert('Vui lòng chọn ít nhất 1 mục để xuất kho!');
+        alert('Vui lòng chọn ít nhất 1 mục!');
         return;
     }
 
-    if (!confirm('Xác nhận xuất kho ' + items.length + ' mục đã chọn?')) return;
+    // Đóng modal xác nhận
+    var modalInstance = bootstrap.Modal.getInstance(modalXacNhan);
+    modalInstance.hide();
 
     fetch('xuly_xuatkho.php', {
             method: 'POST',
@@ -187,28 +216,22 @@ document.getElementById('btnXuat').onclick = function() {
                 items: items
             })
         })
-        .then(function(r) {
-            return r.json();
-        })
-        .then(function(data) {
-            if (data.status === 'error') {
-                alert('Lỗi: ' + data.message);
-            } else {
-                // HIỆN PHIẾU TRONG MODAL CÓ NÚT X
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success') {
                 document.getElementById('noiDungPhieu').innerHTML = data.html;
-                var modal = new bootstrap.Modal(document.getElementById('modalPhieuXuat'));
-                modal.show();
+                var modalPhieu = new bootstrap.Modal(document.getElementById('modalPhieuXuat'));
+                modalPhieu.show();
 
-                // Khi đóng modal → reload trang để cập nhật danh sách
                 document.getElementById('modalPhieuXuat').addEventListener('hidden.bs.modal', function() {
                     location.reload();
                 });
+            } else {
+                alert('Lỗi: ' + data.message);
             }
         })
-        .catch(function(err) {
-            alert('Lỗi kết nối: ' + err);
-        });
-};
+        .catch(() => alert('Lỗi kết nối đến server!'));
+});
 </script>
 
 <?php include_once('../../layout/footer.php'); ?>
