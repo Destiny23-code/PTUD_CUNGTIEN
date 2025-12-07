@@ -29,78 +29,59 @@ $maSP = isset($_GET['ma_sp']) ? $_GET['ma_sp'] : '';
 // Xử lý xuất Excel
 if (isset($_GET['export']) && $_GET['export'] == 'excel') {
     $dsThongKe = $thongKe->layDuLieuThongKe($tuNgay, $denNgay, $dayChuyen, $maSP);
-    $tongQuan = $thongKe->layTongQuanThongKe($tuNgay, $denNgay);
+    $tongQuan = $thongKe->layTongQuanThongKe($tuNgay, $denNgay, $dayChuyen, $maSP);
+    
+    $tyLeHT = $tongQuan['tongKeHoach'] > 0 ? round(($tongQuan['slThucTe'] / $tongQuan['tongKeHoach']) * 100, 1) : 0;
+    $tyLeLoi = $tongQuan['slThucTe'] > 0 ? round(($tongQuan['slLoi'] / $tongQuan['slThucTe']) * 100, 2) : 0;
     
     header('Content-Type: application/vnd.ms-excel; charset=utf-8');
     header('Content-Disposition: attachment; filename="ThongKeSanXuat_' . date('YmdHis') . '.xls"');
+    header('Cache-Control: no-cache, must-revalidate');
     header('Pragma: no-cache');
     header('Expires: 0');
     
-    echo "\xEF\xBB\xBF"; // UTF-8 BOM
-    ?>
-    <html xmlns:x="urn:schemas-microsoft-com:office:excel">
-    <head>
-        <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-        <style>
-            table { border-collapse: collapse; }
-            th, td { border: 1px solid black; padding: 5px; }
-            th { background-color: #4CAF50; color: white; font-weight: bold; }
-            .text-center { text-align: center; }
-            .text-right { text-align: right; }
-        </style>
-    </head>
-    <body>
-        <h2 style="text-align: center;">BÁO CÁO THỐNG KÊ SẢN XUẤT</h2>
-        <p><strong>Thời gian:</strong> Từ <?php echo date('d/m/Y', strtotime($tuNgay)); ?> đến <?php echo date('d/m/Y', strtotime($denNgay)); ?></p>
-        <p><strong>Ngày xuất:</strong> <?php echo date('d/m/Y H:i:s'); ?></p>
-        
-        <table>
-            <thead>
-                <tr>
-                    <th>STT</th>
-                    <th>Thời Gian</th>
-                    <th>Dây Chuyền</th>
-                    <th>Mã SP</th>
-                    <th>Tên Sản Phẩm</th>
-                    <th>SL Kế Hoạch</th>
-                    <th>SL Thực Tế</th>
-                    <th>Tỷ Lệ HT (%)</th>
-                    <th>SP Lỗi</th>
-                    <th>Tỷ Lệ Lỗi (%)</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php 
-                $stt = 0;
-                foreach ($dsThongKe as $row): 
-                    $stt++;
-                ?>
-                <tr>
-                    <td class="text-center"><?php echo $stt; ?></td>
-                    <td class="text-center"><?php echo $row['ThoiGian']; ?></td>
-                    <td class="text-center"><?php echo $row['DayChuyen']; ?></td>
-                    <td class="text-center"><?php echo $row['MS_SP']; ?></td>
-                    <td><?php echo $row['TenSP']; ?></td>
-                    <td class="text-right"><?php echo number_format($row['SL_KeHoach']); ?></td>
-                    <td class="text-right"><?php echo number_format($row['SL_ThucTe']); ?></td>
-                    <td class="text-center"><?php echo $row['TyLeHoanThanh']; ?>%</td>
-                    <td class="text-right"><?php echo number_format($row['SP_Loi']); ?></td>
-                    <td class="text-center"><?php echo $row['TyLeLoi']; ?>%</td>
-                </tr>
-                <?php endforeach; ?>
-                <tr style="background-color: #f0f0f0; font-weight: bold;">
-                    <td colspan="5" class="text-right">TỔNG CỘNG</td>
-                    <td class="text-right"><?php echo number_format($tongQuan['tongKeHoach']); ?></td>
-                    <td class="text-right"><?php echo number_format($tongQuan['slThucTe']); ?></td>
-                    <td class="text-center"><?php echo $tongQuan['tongKeHoach'] > 0 ? round(($tongQuan['slThucTe'] / $tongQuan['tongKeHoach']) * 100, 1) : 0; ?>%</td>
-                    <td class="text-right"><?php echo number_format($tongQuan['slLoi']); ?></td>
-                    <td class="text-center"><?php echo $tongQuan['slThucTe'] > 0 ? round(($tongQuan['slLoi'] / $tongQuan['slThucTe']) * 100, 2) : 0; ?>%</td>
-                </tr>
-            </tbody>
-        </table>
-    </body>
-    </html>
-    <?php
+    echo "\xEF\xBB\xBF";
+?>
+<table border="1" cellpadding="5" cellspacing="0">
+    <thead>
+        <tr style="background-color: #4CAF50; color: white; font-weight: bold;">
+            <th colspan="7" style="text-align: center; font-size: 16px;">BẢNG CHI TIẾT KẾT QUẢ SẢN XUẤT</th>
+        </tr>
+        <tr style="background-color: #4CAF50; color: white; font-weight: bold;">
+            <th>STT</th>
+            <th>Thời Gian</th>
+            <th>Dây Chuyền</th>
+            <th>Mã SP</th>
+            <th>Số Lượng Kế Hoạch</th>
+            <th>Số Lượng Thực Tế</th>
+            <th>Tỷ Lệ HT (%)</th>
+        </tr>
+    </thead>
+    <tbody>
+        <?php 
+        $stt = 0;
+        foreach ($dsThongKe as $row): 
+            $stt++;
+        ?>
+        <tr>
+            <td style="text-align: center;"><?php echo $stt; ?></td>
+            <td style="text-align: center;"><?php echo $row['ThoiGian']; ?></td>
+            <td style="text-align: center;"><?php echo $row['DayChuyen']; ?></td>
+            <td style="text-align: center;"><?php echo $row['MS_SP']; ?></td>
+            <td style="text-align: right;"><?php echo $row['SL_KeHoach']; ?></td>
+            <td style="text-align: right;"><?php echo $row['SL_ThucTe']; ?></td>
+            <td style="text-align: center;"><?php echo $row['TyLeHoanThanh']; ?>%</td>
+        </tr>
+        <?php endforeach; ?>
+        <tr style="background-color: #f0f0f0; font-weight: bold;">
+            <td colspan="4" style="text-align: right;">TỔNG CỘNG</td>
+            <td style="text-align: right;"><?php echo $tongQuan['tongKeHoach']; ?></td>
+            <td style="text-align: right;"><?php echo $tongQuan['slThucTe']; ?></td>
+            <td style="text-align: center;"><?php echo $tyLeHT; ?>%</td>
+        </tr>
+    </tbody>
+</table>
+<?php
     exit();
 }
 
@@ -108,13 +89,11 @@ if (isset($_GET['export']) && $_GET['export'] == 'excel') {
 $dsThongKe = $thongKe->layDuLieuThongKe($tuNgay, $denNgay, $dayChuyen, $maSP);
 $dsSanPham = $thongKe->layDanhSachSanPham();
 $dsDayChuyen = $thongKe->layDanhSachDayChuyen();
-$tongQuan = $thongKe->layTongQuanThongKe($tuNgay, $denNgay);
+$tongQuan = $thongKe->layTongQuanThongKe($tuNgay, $denNgay, $dayChuyen, $maSP);
 
 // Tính toán
 $tyLeHoanThanh = $tongQuan['tongKeHoach'] > 0 ? 
     round(($tongQuan['slThucTe'] / $tongQuan['tongKeHoach']) * 100, 1) : 0;
-$tyLeLoi = $tongQuan['slThucTe'] > 0 ? 
-    round(($tongQuan['slLoi'] / $tongQuan['slThucTe']) * 100, 3) : 0;
 ?>
 
 <div class="content">
@@ -194,35 +173,19 @@ $tyLeLoi = $tongQuan['slThucTe'] > 0 ?
 
         <!-- THỐNG KÊ TỔNG QUAN -->
         <div class="row mb-3">
-            <div class="col-lg-3 col-md-6 mb-3">
+            <div class="col-lg-6 col-md-6 mb-3">
                 <div class="card shadow-sm border-0" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
                     <div class="card-body text-white text-center">
-                        <h2 class="mb-0 fw-bold"><?php echo number_format($tongQuan['tongKeHoach']); ?></h2>
-                        <p class="mb-0"><i class="bi bi-clipboard-check me-2"></i>Tổng Sản Lượng Thực Tế</p>
+                        <h2 class="mb-0 fw-bold"><?php echo number_format($tongQuan['slThucTe']); ?></h2>
+                        <p class="mb-0"><i class="bi bi-clipboard-check me-2"></i>Tổng Số Lượng Thực Tế</p>
                     </div>
                 </div>
             </div>
-            <div class="col-lg-3 col-md-6 mb-3">
+            <div class="col-lg-6 col-md-6 mb-3">
                 <div class="card shadow-sm border-0" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
                     <div class="card-body text-white text-center">
                         <h2 class="mb-0 fw-bold"><?php echo $tyLeHoanThanh; ?>%</h2>
-                        <p class="mb-0"><i class="bi bi-check-circle me-2"></i>Tỷ Lệ Hoàn Thành Kế Hoạch</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-3 col-md-6 mb-3">
-                <div class="card shadow-sm border-0" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-                    <div class="card-body text-white text-center">
-                        <h2 class="mb-0 fw-bold"><?php echo number_format($tongQuan['slLoi']); ?></h2>
-                        <p class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Tổng Sản Phẩm Lỗi</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-3 col-md-6 mb-3">
-                <div class="card shadow-sm border-0" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
-                    <div class="card-body text-white text-center">
-                        <h2 class="mb-0 fw-bold"><?php echo $tyLeLoi; ?>%</h2>
-                        <p class="mb-0"><i class="bi bi-percent me-2"></i>Tỷ Lệ Lỗi (PPMOR)</p>
+                        <p class="mb-0"><i class="bi bi-check-circle me-2"></i>Tỷ Lệ Hoàn Thành</p>
                     </div>
                 </div>
             </div>
@@ -242,14 +205,12 @@ $tyLeLoi = $tongQuan['slThucTe'] > 0 ?
                         <thead class="table-success text-center">
                             <tr>
                                 <th style="width: 5%;">STT</th>
-                                <th style="width: 12%;">Thời Gian (Ngày/Ca)</th>
-                                <th style="width: 10%;">Dây Chuyền SX</th>
+                                <th style="width: 12%;">Thời Gian</th>
+                                <th style="width: 10%;">Dây Chuyền</th>
                                 <th style="width: 8%;">Mã SP</th>
-                                <th style="width: 13%;">Sản Lượng Kế Hoạch</th>
-                                <th style="width: 13%;">Sản Lượng Thực Tế</th>
-                                <th style="width: 13%;">Tỷ Lệ Hoàn Thành</th>
-                                <th style="width: 13%;">Sản Phẩm Lỗi (Đơn vị)</th>
-                                <th style="width: 13%;">Tỷ Lệ Lỗi (%)</th>
+                                <th style="width: 20%;">Số Lượng Kế Hoạch</th>
+                                <th style="width: 20%;">Số Lượng Thực Tế</th>
+                                <th style="width: 20%;">Tỷ Lệ Hoàn Thành</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -258,11 +219,10 @@ $tyLeLoi = $tongQuan['slThucTe'] > 0 ?
                                 $stt = 0;
                                 foreach ($dsThongKe as $row): 
                                     $stt++;
-                                    $ca = rand(1, 3);
                                 ?>
                                 <tr>
                                     <td class="text-center fw-bold"><?php echo $stt; ?></td>
-                                    <td class="text-center"><?php echo $row['ThoiGian']; ?> (Ca <?php echo $ca; ?>)</td>
+                                    <td class="text-center"><?php echo $row['ThoiGian']; ?></td>
                                     <td class="text-center">
                                         <span class="badge bg-primary"><?php echo $row['DayChuyen']; ?></span>
                                     </td>
@@ -279,16 +239,6 @@ $tyLeLoi = $tongQuan['slThucTe'] > 0 ?
                                         ?>
                                         <span class="badge <?php echo $badgeClass; ?>"><?php echo $tyLe; ?>%</span>
                                     </td>
-                                    <td class="text-end text-danger fw-bold"><?php echo number_format($row['SP_Loi']); ?></td>
-                                    <td class="text-center">
-                                        <?php 
-                                        $tyLeLoi = $row['TyLeLoi'];
-                                        $badgeClass = 'bg-success';
-                                        if ($tyLeLoi > 3) $badgeClass = 'bg-danger';
-                                        elseif ($tyLeLoi > 1) $badgeClass = 'bg-warning text-dark';
-                                        ?>
-                                        <span class="badge <?php echo $badgeClass; ?>"><?php echo $tyLeLoi; ?>%</span>
-                                    </td>
                                 </tr>
                                 <?php endforeach; ?>
                                 <tr class="table-light fw-bold">
@@ -298,14 +248,10 @@ $tyLeLoi = $tongQuan['slThucTe'] > 0 ?
                                     <td class="text-center">
                                         <span class="badge bg-info"><?php echo $tyLeHoanThanh; ?>%</span>
                                     </td>
-                                    <td class="text-end text-danger"><?php echo number_format($tongQuan['slLoi']); ?></td>
-                                    <td class="text-center">
-                                        <span class="badge bg-warning text-dark"><?php echo $tyLeLoi; ?>%</span>
-                                    </td>
                                 </tr>
                             <?php else: ?>
                                 <tr>
-                                    <td colspan="9" class="text-center text-muted py-5">
+                                    <td colspan="7" class="text-center text-muted py-5">
                                         <i class="bi bi-inbox fs-1 mb-3 d-block text-secondary"></i>
                                         <h5>Không có dữ liệu thống kê</h5>
                                         <p>Vui lòng chọn khoảng thời gian khác hoặc kiểm tra dữ liệu sản xuất.</p>

@@ -17,7 +17,19 @@ $tt = $cn->getTTCN($_SESSION['maNV']);
       <div class="card-body">
         <div class="row align-items-center">
           <div class="col-md-3 text-center">
-            <img src="../../layout/images/congnhan.jpg" class="avatar shadow" style=" width: 180px;height: 180px;border-radius: 50%;margin-bottom: 10px;">
+            <?php
+            // Hiển thị avatar khác nhau dựa trên giới tính
+            $avatarUrl = 'https://ui-avatars.com/api/?name=' . urlencode($_SESSION['hoTen']) . 
+                         '&size=180&bold=true&rounded=true&format=svg';
+            
+            // Màu nền khác nhau cho nam/nữ
+            if ($tt['gioiTinh'] == 'Nam') {
+                $avatarUrl .= '&background=4A90E2&color=fff'; // Xanh dương cho nam
+            } else {
+                $avatarUrl .= '&background=E91E63&color=fff'; // Hồng cho nữ
+            }
+            ?>
+            <img src="<?php echo $avatarUrl; ?>" class="avatar shadow" style="width: 180px;height: 180px;border-radius: 50%;margin-bottom: 10px;">
             <h6 class="mt-2"><b><?php echo htmlspecialchars($_SESSION['hoTen']); ?></b></h6>
             <span class="badge bg-primary"><?php echo $tt['tenLoai']?></span>
           </div>

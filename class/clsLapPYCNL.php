@@ -10,7 +10,7 @@ class LapPYCNL extends ketnoi {
 
     public function getKeHoachSanXuat() {
         try {
-            $sql = "SELECT kh.maKHSX, kh.ngayLap, kh.hinhThuc,
+            $sql = "SELECT DISTINCT kh.maKHSX, kh.ngayLap, kh.hinhThuc,
                            dh.maDH, ct.soLuong as soLuongCanSX,
                            sp.maSP, sp.tenSP
                     FROM kehoachsanxuat kh
@@ -167,21 +167,39 @@ class LapPYCNL extends ketnoi {
         }
     }
 
-    public function insertPhieuYeuCau($maKHSX, $nguoiLap, $maXuong, $details, $ghiChu = '') {
+    public function getXuongByDayChuyenId($maDC) {
+        try {
+            $ma = intval($maDC);
+            if ($ma <= 0) return null;
+            $sql = "SELECT x.maXuong, x.tenXuong, x.diaChi, x.sDT 
+                    FROM xuong x
+                    INNER JOIN daychuyen dc ON x.maXuong = dc.maXuong
+                    WHERE dc.maDC = {$ma}
+                    LIMIT 1";
+            $data = $this->laydulieu($this->conn, $sql);
+            return !empty($data) ? $data[0] : null;
+        } catch (Exception $e) {
+            error_log("Lỗi getXuongByDayChuyenId: " . $e->getMessage());
+            return null;
+        }
+    }
+
+    public function insertPhieuYeuCau($maKHSX, $nguoiLap, $maXuong, $details, $ghiChu = '', $maPhieuCustom = '', $maSP = null) {
         if (empty($details)) return "Chi tiết yêu cầu không hợp lệ.";
 
         $conn = $this->conn;
         $conn->autocommit(false);
         
         try {
-            $maPhieu = "YE" . date("YmdHis");
+            $maPhieu = !empty($maPhieuCustom) ? $maPhieuCustom : "YE" . date("YmdHis");
             $maKHSX_int = intval($maKHSX);
             $maXuong_int = intval($maXuong);
             $nguoiLap_esc = $conn->real_escape_string($nguoiLap);
             $ghiChu_esc = $conn->real_escape_string($ghiChu);
+            $maSP_int = $maSP ? intval($maSP) : 'NULL';
             
-            $sql_py = "INSERT INTO phieuyeucaunguyenlieu (maPhieu, maKHSX, ngayLap, nguoiLap, trangThai, maXuong, ghiChu)
-                       VALUES ('{$maPhieu}', {$maKHSX_int}, CURDATE(), '{$nguoiLap_esc}', 'Chờ duyệt', {$maXuong_int}, '{$ghiChu_esc}')";
+            $sql_py = "INSERT INTO phieuyeucaunguyenlieu (maPhieu, maKHSX, maSP, ngayLap, nguoiLap, trangThai, maXuong, ghiChu)
+                       VALUES ('{$maPhieu}', {$maKHSX_int}, {$maSP_int}, CURDATE(), '{$nguoiLap_esc}', 'Chờ duyệt', {$maXuong_int}, '{$ghiChu_esc}')";
             
             if (!$conn->query($sql_py)) {
                 throw new Exception("Lỗi khi tạo phiếu: " . $conn->error);
@@ -216,6 +234,30 @@ class LapPYCNL extends ketnoi {
         }
     }
 
+    public function getAllPhieuYeuCau() {
+        try {
+            $sql = "SELECT DISTINCT py.maPYCNL, py.maPhieu, py.ngayLap, py.trangThai,
+                           kh.maKHSX, kh.hinhThuc,
+                           sp.tenSP, sp.maSP,
+                           x.tenXuong,
+                           nv.tenNV as tenNguoiLap
+                    FROM phieuyeucaunguyenlieu py
+                    LEFT JOIN kehoachsanxuat kh ON py.maKHSX = kh.maKHSX
+                    LEFT JOIN donhang dh ON kh.maDH = dh.maDH
+                    LEFT JOIN chitiet_donhang ct ON dh.maDH = ct.maDH AND ct.maSP = py.maSP
+                    LEFT JOIN sanpham sp ON py.maSP = sp.maSP
+                    LEFT JOIN xuong x ON py.maXuong = x.maXuong
+                    LEFT JOIN nhanvien nv ON py.nguoiLap = nv.maNV
+                    ORDER BY py.ngayLap DESC, py.maPYCNL DESC";
+            
+            $result = $this->laydulieu($this->conn, $sql);
+            return $result ? $result : array();
+        } catch (Exception $e) {
+            error_log("Lỗi getAllPhieuYeuCau: " . $e->getMessage());
+            return array();
+        }
+    }
+
     public function getPhieuYeuCauById($maPYCNL) {
         try {
             $ma = intval($maPYCNL);
@@ -223,15 +265,15 @@ class LapPYCNL extends ketnoi {
             
             $sql = "SELECT py.*, 
                            kh.maKHSX, kh.hinhThuc,
-                           dh.soLuong as soLuongCanSX,
+                           ct.soLuong as soLuongCanSX,
                            sp.tenSP, sp.donViTinh as donViTinhSP,
                            x.tenXuong, x.diaChi as diaChiXuong,
                            nv.tenNV as tenNguoiLap
                     FROM phieuyeucaunguyenlieu py
                     LEFT JOIN kehoachsanxuat kh ON py.maKHSX = kh.maKHSX
                     LEFT JOIN donhang dh ON kh.maDH = dh.maDH
-                    LEFT JOIN chitiet_donhang ct ON dh.maDH = ct.maDH
-                    LEFT JOIN sanpham sp ON ct.maSP = sp.maSP
+                    LEFT JOIN chitiet_donhang ct ON dh.maDH = ct.maDH AND ct.maSP = py.maSP
+                    LEFT JOIN sanpham sp ON py.maSP = sp.maSP
                     LEFT JOIN xuong x ON py.maXuong = x.maXuong
                     LEFT JOIN nhanvien nv ON py.nguoiLap = nv.maNV
                     WHERE py.maPYCNL = {$ma}
@@ -262,6 +304,49 @@ class LapPYCNL extends ketnoi {
         } catch (Exception $e) {
             error_log("Lỗi getChiTietPhieuYeuCau: " . $e->getMessage());
             return array();
+        }
+    }
+
+    public function getNhanVienById($maNV) {
+        try {
+            $ma = intval($maNV);
+            if ($ma <= 0) return null;
+            
+            $sql = "SELECT nv.maNV, nv.tenNV, nv.gioiTinh, nv.ngaySinh, nv.sDT, nv.diaChi,
+                           nv.maDC, dc.tenDC, x.tenXuong
+                    FROM nhanvien nv
+                    LEFT JOIN daychuyen dc ON nv.maDC = dc.maDC
+                    LEFT JOIN xuong x ON dc.maXuong = x.maXuong
+                    WHERE nv.maNV = {$ma}
+                    LIMIT 1";
+            
+            $result = $this->laydulieu($this->conn, $sql);
+            return !empty($result) ? $result[0] : null;
+        } catch (Exception $e) {
+            error_log("Lỗi getNhanVienById: " . $e->getMessage());
+            return null;
+        }
+    }
+
+    public function updateTrangThaiPhieu($maPYCNL, $trangThai) {
+        try {
+            $ma = intval($maPYCNL);
+            if ($ma <= 0) return false;
+            
+            $trangThaiHopLe = array('Chờ duyệt', 'Đã duyệt', 'Đã cấp', 'Đã hủy');
+            if (!in_array($trangThai, $trangThaiHopLe)) {
+                return false;
+            }
+            
+            $trangThai_esc = $this->conn->real_escape_string($trangThai);
+            $sql = "UPDATE phieuyeucaunguyenlieu 
+                    SET trangThai = '{$trangThai_esc}' 
+                    WHERE maPYCNL = {$ma}";
+            
+            return $this->conn->query($sql);
+        } catch (Exception $e) {
+            error_log("Lỗi updateTrangThaiPhieu: " . $e->getMessage());
+            return false;
         }
     }
 
