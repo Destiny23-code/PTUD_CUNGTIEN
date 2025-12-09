@@ -21,6 +21,19 @@ include_once('../../layout/giaodien/qdx.php');
 
 $phanBo = new PhanBoDayChuyen();
 
+// Xử lý cập nhật trạng thái
+if (isset($_GET['action']) && $_GET['action'] == 'update_status') {
+    $maPBDC = isset($_GET['id']) ? intval($_GET['id']) : 0;
+    $trangThaiMoi = isset($_GET['status']) ? $_GET['status'] : '';
+    
+    if ($maPBDC > 0 && !empty($trangThaiMoi)) {
+        if ($phanBo->capNhatTrangThai($maPBDC, $trangThaiMoi)) {
+            header("Location: pbdc.php?update_success=1");
+            exit();
+        }
+    }
+}
+
 // Xử lý thêm phân bổ mới
 $thongBao = '';
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['themPhanBo'])) {
@@ -46,6 +59,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['themPhanBo'])) {
 if (isset($_GET['success'])) {
     $thongBao = '<div class="alert alert-success alert-dismissible fade show" role="alert">
         <i class="bi bi-check-circle me-2"></i>Thêm phân bổ dây chuyền thành công!
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>';
+}
+
+if (isset($_GET['update_success'])) {
+    $thongBao = '<div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="bi bi-check-circle me-2"></i>Cập nhật trạng thái thành công!
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>';
 }
@@ -84,7 +104,7 @@ if (isset($_GET['debug'])) {
 
         <!-- THỐNG KÊ -->
         <div class="row mb-3">
-            <div class="col-lg-6 col-md-6 mb-3">
+            <div class="col-lg-4 col-md-4 mb-3">
                 <div class="card shadow-sm border-0" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
                     <div class="card-body text-white text-center">
                         <h2 class="mb-0 fw-bold"><?php echo $thongKe['tongDayChuyen']; ?></h2>
@@ -92,11 +112,19 @@ if (isset($_GET['debug'])) {
                     </div>
                 </div>
             </div>
-            <div class="col-lg-6 col-md-6 mb-3">
+            <div class="col-lg-4 col-md-4 mb-3">
                 <div class="card shadow-sm border-0" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
                     <div class="card-body text-white text-center">
                         <h2 class="mb-0 fw-bold"><?php echo $thongKe['tongPhanBo']; ?></h2>
                         <p class="mb-0"><i class="bi bi-check-circle me-2"></i>Tổng Phân Bổ</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4 col-md-4 mb-3">
+                <div class="card shadow-sm border-0" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                    <div class="card-body text-white text-center">
+                        <h2 class="mb-0 fw-bold"><?php echo $thongKe['tenXuong']; ?></h2>
+                        <p class="mb-0"><i class="bi bi-building me-2"></i>Xưởng Sản Xuất</p>
                     </div>
                 </div>
             </div>
@@ -175,12 +203,13 @@ if (isset($_GET['debug'])) {
                     <table class="table table-bordered table-hover align-middle mb-0">
                         <thead class="table-dark text-center">
                             <tr>
-                                <th style="width: 15%;">Mã DC</th>
-                                <th style="width: 30%;">Tên Dây Chuyền</th>
-                                <th style="width: 20%;">Sản Phẩm</th>
-                                <th style="width: 15%;">Số Lượng</th>
-                                <th style="width: 10%;">Hạn Giao</th>
-                                <th style="width: 10%;">Hành Động</th>
+                                <th style="width: 10%;">Mã DC</th>
+                                <th style="width: 22%;">Tên Dây Chuyền</th>
+                                <th style="width: 18%;">Sản Phẩm</th>
+                                <th style="width: 10%;">Số Lượng</th>
+                                <th style="width: 12%;">Ngày Bắt Đầu</th>
+                                <th style="width: 12%;">Hạn Giao</th>
+                                <th style="width: 16%;">Trạng Thái</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -193,8 +222,17 @@ if (isset($_GET['debug'])) {
                                     <td class="text-end"><?php echo number_format($pb['soLuong'], 0, ',', '.'); ?></td>
                                     <td class="text-center">
                                         <?php 
+                                        if ($pb['ngayBatDau'] && $pb['ngayBatDau'] != '0000-00-00') {
+                                            echo date('d/m/Y', strtotime($pb['ngayBatDau']));
+                                        } else {
+                                            echo '<span class="text-muted">-</span>';
+                                        }
+                                        ?>
+                                    </td>
+                                    <td class="text-center">
+                                        <?php 
                                         if ($pb['ngayKetThuc'] && $pb['ngayKetThuc'] != '0000-00-00') {
-                                            echo date('Y-m-d', strtotime($pb['ngayKetThuc']));
+                                            echo date('d/m/Y', strtotime($pb['ngayKetThuc']));
                                         } else {
                                             echo '<span class="text-muted">-</span>';
                                         }
@@ -203,17 +241,18 @@ if (isset($_GET['debug'])) {
                                     <td class="text-center">
                                         <?php 
                                         $trangThai = $pb['trangThai'];
+                                        $maPBDC = $pb['maPBDC'];
                                         if ($trangThai == 'Hoàn Thành'): 
                                         ?>
-                                            <span class="badge bg-success">
+                                            <span class="badge bg-success" style="cursor: pointer;" onclick="capNhatTrangThai(<?php echo $maPBDC; ?>, 'Hoàn Thành')" title="Click để thay đổi trạng thái">
                                                 <i class="bi bi-check-circle me-1"></i>Hoàn Thành
                                             </span>
                                         <?php elseif ($trangThai == 'Đang thực hiện'): ?>
-                                            <span class="badge bg-primary">
+                                            <span class="badge bg-primary" style="cursor: pointer;" onclick="capNhatTrangThai(<?php echo $maPBDC; ?>, 'Đang thực hiện')" title="Click để thay đổi trạng thái">
                                                 <i class="bi bi-arrow-repeat me-1"></i>Đang Thực Hiện
                                             </span>
                                         <?php else: ?>
-                                            <span class="badge bg-warning text-dark">
+                                            <span class="badge bg-warning text-dark" style="cursor: pointer;" onclick="capNhatTrangThai(<?php echo $maPBDC; ?>, 'Chưa bắt đầu')" title="Click để thay đổi trạng thái">
                                                 <i class="bi bi-clock me-1"></i>Chưa Bắt Đầu
                                             </span>
                                         <?php endif; ?>
@@ -222,10 +261,10 @@ if (isset($_GET['debug'])) {
                                 <?php endforeach; ?>
                             <?php else: ?>
                                 <tr>
-                                    <td colspan="6" class="text-center text-muted py-5">
+                                    <td colspan="7" class="text-center text-muted py-5">
                                         <i class="bi bi-inbox fs-1 mb-3 d-block"></i>
-                                        <h5>Không tìm thấy phân bổ dây chuyền nào</h5>
-                                        <p>Vui lòng chạy file SQL <strong>tao_bang_phanbodaychuyen.sql</strong> để tạo bảng và thêm dữ liệu mẫu.</p>
+                                        <h5>Chưa có phân bổ dây chuyền nào</h5>
+                                        <p>Hãy thêm phân bổ sản phẩm cho dây chuyền</p>
                                     </td>
                                 </tr>
                             <?php endif; ?>
@@ -333,8 +372,6 @@ document.getElementById('selectKHSX').addEventListener('change', function() {
     const tenSP = selectedOption.getAttribute('data-tensp');
     const soLuong = selectedOption.getAttribute('data-soluong');
     
-    console.log('Selected:', {maSP, tenSP, soLuong}); // Debug
-    
     if (maSP) {
         document.getElementById('inputMaSP').value = maSP;
         document.getElementById('displaySP').value = tenSP;
@@ -363,15 +400,47 @@ document.querySelector('form[method="POST"]').addEventListener('submit', functio
         return false;
     }
     
-    console.log('Form data:', {
-        maDC: document.querySelector('[name="maDC"]').value,
-        maKHSX: document.querySelector('[name="maKHSX"]').value,
-        maSP: maSP,
-        soLuong: soLuong
-    });
-    
     return true;
 });
+
+// Cập nhật trạng thái phân bổ
+function capNhatTrangThai(maPBDC, trangThaiHienTai) {
+    // Hiển thị menu chọn trạng thái mới
+    var trangThaiMoi = '';
+    var message = 'Chọn trạng thái mới:\n\n';
+    message += '1. Chưa bắt đầu\n';
+    message += '2. Đang thực hiện\n';
+    message += '3. Hoàn thành\n\n';
+    message += 'Trạng thái hiện tại: ' + trangThaiHienTai;
+    
+    var choice = prompt(message, '');
+    
+    if (choice === null) return; // User cancelled
+    
+    switch(choice) {
+        case '1':
+            trangThaiMoi = 'Chưa bắt đầu';
+            break;
+        case '2':
+            trangThaiMoi = 'Đang thực hiện';
+            break;
+        case '3':
+            trangThaiMoi = 'Hoàn Thành';
+            break;
+        default:
+            alert('Lựa chọn không hợp lệ!');
+            return;
+    }
+    
+    if (trangThaiMoi === trangThaiHienTai) {
+        alert('Trạng thái mới giống trạng thái hiện tại!');
+        return;
+    }
+    
+    if (confirm('Bạn có chắc muốn chuyển trạng thái sang "' + trangThaiMoi + '"?')) {
+        window.location.href = 'pbdc.php?action=update_status&id=' + maPBDC + '&status=' + encodeURIComponent(trangThaiMoi);
+    }
+}
 </script>
 
 <?php include_once("../../layout/footer.php"); ?>

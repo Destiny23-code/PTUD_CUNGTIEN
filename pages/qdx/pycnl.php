@@ -34,6 +34,21 @@ $msg = "";
 // Lấy tham số
 $maKHSX_Selected = 0;
 $maSP_Selected = 0;
+$maPYCNL_Edit = 0;
+$phieuEdit = null;
+
+// Kiểm tra nếu đang xem/sửa phiếu
+if (isset($_GET['id'])) {
+    $maPYCNL_Edit = intval($_GET['id']);
+    if ($maPYCNL_Edit > 0) {
+        $phieuEdit = $pycnl->getPhieuYeuCauById($maPYCNL_Edit);
+        if ($phieuEdit) {
+            $maKHSX_Selected = intval($phieuEdit['maKHSX']);
+            // Lấy maSP từ kế hoạch
+            $thongTinKHSX_temp = $pycnl->getKeHoachSanXuatById($maKHSX_Selected);
+        }
+    }
+}
 
 if (isset($_POST['keHoachSX'])) {
     $parts = explode('_', $_POST['keHoachSX']);
@@ -45,29 +60,51 @@ if (isset($_POST['keHoachSX'])) {
 }
 
 // Lấy dữ liệu từ CSDL
-$currentDate = date("d/m/Y");
-$nguoiLap = isset($_SESSION['user']) ? $_SESSION['user'] : 'Người dùng ẩn danh';
+$currentDate = isset($_POST['ngayYeuCau']) ? $_POST['ngayYeuCau'] : date("d/m/Y");
 $maNguoiLap = isset($_SESSION['id']) ? $_SESSION['id'] : 0;
 
-// Lấy mã xưởng từ POST hoặc SESSION
-$maXuong = 0;
-if (isset($_POST['maXuong']) && !empty($_POST['maXuong'])) {
-    $maXuong = intval($_POST['maXuong']);
-    $_SESSION['maXuong_selected'] = $maXuong;
-} elseif (isset($_SESSION['maXuong_selected'])) {
-    $maXuong = intval($_SESSION['maXuong_selected']);
-} elseif (isset($_SESSION['maXuong'])) {
-    $maXuong = intval($_SESSION['maXuong']);
+// Lấy thông tin nhân viên để hiển thị họ tên
+$thongTinNV = null;
+$nguoiLap = 'Trần Thị Hạnh'; // Mặc định là Trần Thị Hạnh
+if ($maNguoiLap > 0) {
+    $thongTinNV = $pycnl->getNhanVienById($maNguoiLap);
+    if ($thongTinNV) {
+        $nguoiLap = $thongTinNV['tenNV'];
+    }
 }
 
-// Lấy thông tin cần thiết từ CSDL
-$danhSachXuong = $pycnl->getAllXuong();
+// Cho phép chỉnh sửa tên người lập nếu có POST
+if (isset($_POST['nguoiLap']) && !empty($_POST['nguoiLap'])) {
+    $nguoiLap = $_POST['nguoiLap'];
+}
+
+// Lấy xưởng của nhân viên đang đăng nhập
+$maXuong = 0;
 $thongTinXuong = null;
 $tenXuong = '';
+$danhSachXuong = array();
 
-if ($maXuong > 0) {
+if ($maNguoiLap > 0) {
+    $thongTinNV = $pycnl->getNhanVienById($maNguoiLap);
+    if ($thongTinNV && isset($thongTinNV['maDC'])) {
+        // Lấy xưởng từ dây chuyền của nhân viên
+        $maDC = $thongTinNV['maDC'];
+        $xuongCuaNV = $pycnl->getXuongByDayChuyenId($maDC);
+        if ($xuongCuaNV) {
+            $maXuong = intval($xuongCuaNV['maXuong']);
+            $thongTinXuong = $xuongCuaNV;
+            $tenXuong = $xuongCuaNV['tenXuong'];
+            $danhSachXuong = array($xuongCuaNV); // Chỉ có 1 xưởng
+        }
+    }
+}
+
+// Nếu không tìm được xưởng, mặc định là xưởng 4
+if ($maXuong == 0) {
+    $maXuong = 4;
     $thongTinXuong = $pycnl->getXuongById($maXuong);
     $tenXuong = $thongTinXuong ? $thongTinXuong['tenXuong'] : '';
+    $danhSachXuong = $thongTinXuong ? array($thongTinXuong) : array();
 }
 
 $keHoachSanXuat = $pycnl->getKeHoachSanXuat();
@@ -99,6 +136,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['btnGuiYeuCau'])) {
     }
     
     $ghiChu = isset($_POST['ghiChu']) ? trim($_POST['ghiChu']) : '';
+    $maPhieuCustom = isset($_POST['maYeuCau']) ? trim($_POST['maYeuCau']) : '';
+    $nguoiLapCustom = isset($_POST['nguoiLap']) ? trim($_POST['nguoiLap']) : '';
     
     if ($maXuong <= 0) {
         $msg = "Vui lòng chọn Xưởng.";
@@ -106,13 +145,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['btnGuiYeuCau'])) {
         $msg = "Vui lòng chọn Kế hoạch Sản Xuất.";
     } elseif (empty($details)) {
         $msg = "Vui lòng nhập chi tiết nguyên liệu cần yêu cầu.";
+    } elseif (empty($nguoiLapCustom)) {
+        $msg = "Vui lòng nhập tên người lập phiếu.";
     } else {
-        $result = $pycnl->insertPhieuYeuCau($maKHSX_Selected, $maNguoiLap, $maXuong, $details, $ghiChu);
+        $result = $pycnl->insertPhieuYeuCau($maKHSX_Selected, $maNguoiLap, $maXuong, $details, $ghiChu, $maPhieuCustom, $maSP_Selected);
         
         if ($result === true) {
             // Xóa session đã chọn
             unset($_SESSION['maXuong_selected']);
-            echo "<script>alert('Lập phiếu yêu cầu nguyên liệu thành công!'); window.location.href='./pycnl.php';</script>";
+            echo "<script>alert('Lập phiếu yêu cầu nguyên liệu thành công!'); window.location.href='dspycnl.php';</script>";
             exit();
         } else {
             $msg = "Có lỗi xảy ra: " . htmlspecialchars($result);
@@ -125,9 +166,14 @@ $maYeuCau_TuDong = "YE" . date("YmdHis");
 
 <div class="content">
     <div class="container-fluid">
-        <h3 class="mb-4 text-primary">
-            <i class="bi bi-file-earmark-text me-2"></i>LẬP PHIẾU YÊU CẦU NGUYÊN LIỆU
-        </h3>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h3 class="text-primary mb-0">
+                <i class="bi bi-file-earmark-text me-2"></i>LẬP PHIẾU YÊU CẦU NGUYÊN LIỆU
+            </h3>
+            <a href="dspycnl.php" class="btn btn-outline-primary">
+                <i class="bi bi-list-ul me-2"></i>Danh Sách Phiếu
+            </a>
+        </div>
         
         <?php if (!empty($msg)): ?>
             <div class="alert alert-danger alert-dismissible fade show" role="alert">
@@ -147,19 +193,44 @@ $maYeuCau_TuDong = "YE" . date("YmdHis");
                             <div class="row g-3">
                                 <div class="col-lg-3 col-md-6">
                                     <label class="form-label fw-bold">Mã Yêu Cầu</label>
-                                    <input type="text" class="form-control bg-light" value="<?php echo $maYeuCau_TuDong; ?>" readonly>
+                                    <input type="text" class="form-control" name="maYeuCau" value="<?php echo $maYeuCau_TuDong; ?>" placeholder="Nhập mã yêu cầu">
+                                    <small class="text-muted">
+                                        <i class="bi bi-info-circle me-1"></i>
+                                        Mã tự động: <?php echo $maYeuCau_TuDong; ?>
+                                    </small>
                                 </div>
                                 <div class="col-lg-3 col-md-6">
                                     <label class="form-label fw-bold">Ngày Yêu Cầu <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control bg-light" value="<?php echo $currentDate; ?>" readonly>
+                                    <input type="text" class="form-control" name="ngayYeuCau" value="<?php echo $currentDate; ?>" placeholder="dd/mm/yyyy">
                                 </div>
                                 <div class="col-lg-3 col-md-6">
                                     <label class="form-label fw-bold">Người Lập Phiếu</label>
-                                    <input type="text" class="form-control bg-light" value="<?php echo htmlspecialchars($nguoiLap); ?>" readonly>
+                                    <input type="text" class="form-control" name="nguoiLap" value="<?php echo htmlspecialchars($nguoiLap); ?>" placeholder="Nhập tên người lập">
                                 </div>
                                 <div class="col-lg-3 col-md-6">
                                     <label class="form-label fw-bold">Trạng Thái</label>
-                                    <input type="text" class="form-control bg-warning text-dark fw-bold text-center" value="Chờ duyệt" readonly>
+                                    <?php 
+                                    $trangThai = 'Chờ duyệt';
+                                    $bgClass = 'bg-warning text-dark';
+                                    
+                                    if ($phieuEdit) {
+                                        $trangThai = $phieuEdit['trangThai'];
+                                        switch ($trangThai) {
+                                            case 'Đã duyệt':
+                                                $bgClass = 'bg-info text-white';
+                                                break;
+                                            case 'Đã cấp':
+                                                $bgClass = 'bg-success text-white';
+                                                break;
+                                            case 'Đã hủy':
+                                                $bgClass = 'bg-danger text-white';
+                                                break;
+                                            default:
+                                                $bgClass = 'bg-warning text-dark';
+                                        }
+                                    }
+                                    ?>
+                                    <input type="text" class="form-control <?php echo $bgClass; ?> fw-bold text-center" value="<?php echo htmlspecialchars($trangThai); ?>" readonly>
                                 </div>
                             </div>
                         </div>
@@ -174,8 +245,7 @@ $maYeuCau_TuDong = "YE" . date("YmdHis");
                             <div class="row g-3">
                                 <div class="col-lg-4 col-md-6">
                                     <label class="form-label fw-bold">Xưởng <span class="text-danger">*</span></label>
-                                    <select class="form-select" id="maXuong" name="maXuong" required onchange="this.form.submit()">
-                                        <option value="">-- Chọn Xưởng --</option>
+                                    <select class="form-select" id="maXuong" name="maXuong" required>
                                         <?php if (!empty($danhSachXuong)): ?>
                                             <?php foreach ($danhSachXuong as $xuong): ?>
                                                 <option value="<?php echo $xuong['maXuong']; ?>" 
@@ -193,6 +263,10 @@ $maYeuCau_TuDong = "YE" . date("YmdHis");
                                             <?php echo htmlspecialchars($thongTinXuong['diaChi']); ?>
                                         </small>
                                     <?php endif; ?>
+                                    <small class="text-info d-block mt-1">
+                                        <i class="bi bi-info-circle me-1"></i>
+                                        Xưởng của bạn: Xưởng Chiết rót & Tiệt trùng chai
+                                    </small>
                                 </div>
                                 <div class="col-lg-8 col-md-6">
                                     <label class="form-label fw-bold">Kế Hoạch Sản Xuất <span class="text-danger">*</span></label>
@@ -395,7 +469,7 @@ $maYeuCau_TuDong = "YE" . date("YmdHis");
                                 <div class="col-md-6">
                                     <button type="button" 
                                             class="btn btn-outline-secondary btn-lg w-100" 
-                                            onclick="if(confirm('Bạn có chắc muốn hủy bỏ? Dữ liệu đã nhập sẽ bị mất.')) { window.location.href='./pycnl.php'; }">
+                                            onclick="if(confirm('Bạn có chắc muốn hủy bỏ? Dữ liệu đã nhập sẽ bị mất.')) { window.location.href='dspycnl.php'; }">
                                         <i class="fas fa-times-circle me-2"></i> Hủy Bỏ
                                     </button>
                                 </div>
@@ -441,6 +515,18 @@ function formatNumber(input) {
     integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
     input.value = integerPart + decimalPart;
 }
+
+// Tự động submit form khi chọn kế hoạch sản xuất
+document.addEventListener('DOMContentLoaded', function() {
+    var selectKHSX = document.getElementById('keHoachSX');
+    if (selectKHSX) {
+        selectKHSX.addEventListener('change', function() {
+            if (this.value) {
+                this.form.submit();
+            }
+        });
+    }
+});
 </script>
 
 <?php include_once("../../layout/footer.php"); ?>

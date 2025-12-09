@@ -12,8 +12,8 @@ class ThongKeSanXuat extends ketnoi {
         try {
             $sql = "SELECT 
                         kh.maKHSX,
-                        DATE_FORMAT(kh.ngayLap, '%d/%m/%Y') as ThoiGian,
-                        kh.ngayLap,
+                        DATE_FORMAT(pb.ngayBatDau, '%d/%m/%Y') as ThoiGian,
+                        pb.ngayBatDau,
                         CONCAT('DC', LPAD(pb.maDC, 3, '0')) as DayChuyen,
                         pb.maDC as maDC_raw,
                         sp.maSP as MS_SP,
@@ -21,24 +21,20 @@ class ThongKeSanXuat extends ketnoi {
                         ct.soLuong as SL_KeHoach,
                         pb.soLuong as SL_ThucTe,
                         ROUND((pb.soLuong / ct.soLuong) * 100, 1) as TyLeHoanThanh,
-                        FLOOR(ct.soLuong * 0.02) as SP_Loi,
-                        ROUND((FLOOR(ct.soLuong * 0.02) / ct.soLuong) * 100, 2) as TyLeLoi,
-                        kh.trangThai as TrangThai
-                    FROM kehoachsanxuat kh
+                        pb.trangThai as TrangThai
+                    FROM phanbodaychuyen pb
+                    INNER JOIN kehoachsanxuat kh ON pb.maKHSX = kh.maKHSX
                     INNER JOIN donhang dh ON kh.maDH = dh.maDH
-                    INNER JOIN chitiet_donhang ct ON dh.maDH = ct.maDH
-                    INNER JOIN sanpham sp ON ct.maSP = sp.maSP
-                    LEFT JOIN phanbodaychuyen pb ON kh.maKHSX = pb.maKHSX AND sp.maSP = pb.maSP
-                    WHERE kh.ngayLap IS NOT NULL 
-                      AND kh.trangThai IN ('Đã duyệt', 'Hoàn thành', 'Đang thực hiện')
-                      AND pb.maDC IS NOT NULL";
+                    INNER JOIN chitiet_donhang ct ON dh.maDH = ct.maDH AND pb.maSP = ct.maSP
+                    INNER JOIN sanpham sp ON pb.maSP = sp.maSP
+                    INNER JOIN daychuyen dc ON pb.maDC = dc.maDC
+                    WHERE dc.maXuong = 4";
             
             if ($tuNgay && $denNgay) {
-                $sql .= " AND kh.ngayLap BETWEEN '{$tuNgay}' AND '{$denNgay}'";
+                $sql .= " AND pb.ngayBatDau BETWEEN '{$tuNgay}' AND '{$denNgay}'";
             }
             
             if ($dayChuyen && !empty($dayChuyen)) {
-                // Lấy số từ DC001 -> 1
                 $maDC = intval(str_replace('DC', '', $dayChuyen));
                 $sql .= " AND pb.maDC = {$maDC}";
             }
@@ -47,7 +43,7 @@ class ThongKeSanXuat extends ketnoi {
                 $sql .= " AND sp.maSP = " . intval($maSP);
             }
             
-            $sql .= " ORDER BY kh.ngayLap DESC, kh.maKHSX DESC LIMIT 50";
+            $sql .= " ORDER BY pb.ngayBatDau DESC, pb.maPBDC DESC";
             
             $result = $this->laydulieu($this->conn, $sql);
             return $result ? $result : array();
@@ -60,7 +56,12 @@ class ThongKeSanXuat extends ketnoi {
     
     public function layDanhSachSanPham() {
         try {
-            $sql = "SELECT maSP, tenSP FROM sanpham ORDER BY maSP";
+            $sql = "SELECT DISTINCT sp.maSP, sp.tenSP 
+                    FROM sanpham sp
+                    INNER JOIN phanbodaychuyen pb ON sp.maSP = pb.maSP
+                    INNER JOIN daychuyen dc ON pb.maDC = dc.maDC
+                    WHERE dc.maXuong = 4
+                    ORDER BY sp.maSP";
             $result = $this->laydulieu($this->conn, $sql);
             if ($result && is_array($result)) {
                 return $result;
@@ -72,9 +73,13 @@ class ThongKeSanXuat extends ketnoi {
         }
     }
     
-    public function layDanhSachDayChuyen() {
+    public function layDanhSachDayChuyen($maXuong = 4) {
         try {
-            $sql = "SELECT DISTINCT maDC, tenDC FROM daychuyen ORDER BY maDC";
+            $maXuong_int = intval($maXuong);
+            $sql = "SELECT DISTINCT dc.maDC, dc.tenDC, dc.maXuong 
+                    FROM daychuyen dc 
+                    WHERE dc.maXuong = {$maXuong_int}
+                    ORDER BY dc.maDC";
             $result = $this->laydulieu($this->conn, $sql);
             if ($result && is_array($result)) {
                 return $result;
@@ -86,21 +91,31 @@ class ThongKeSanXuat extends ketnoi {
         }
     }
     
-    public function layTongQuanThongKe($tuNgay = null, $denNgay = null) {
+    public function layTongQuanThongKe($tuNgay = null, $denNgay = null, $dayChuyen = null, $maSP = null) {
         try {
             $sql = "SELECT 
                         SUM(ct.soLuong) as tongKeHoach,
-                        COUNT(DISTINCT kh.maKHSX) as tongLo,
-                        SUM(COALESCE(pb.soLuong, FLOOR(ct.soLuong * 0.95))) as slThucTe,
-                        SUM(FLOOR(ct.soLuong * 0.02)) as slLoi
-                    FROM kehoachsanxuat kh
+                        SUM(pb.soLuong) as slThucTe,
+                        COUNT(DISTINCT pb.maPBDC) as tongPhanBo
+                    FROM phanbodaychuyen pb
+                    INNER JOIN kehoachsanxuat kh ON pb.maKHSX = kh.maKHSX
                     INNER JOIN donhang dh ON kh.maDH = dh.maDH
-                    INNER JOIN chitiet_donhang ct ON dh.maDH = ct.maDH
-                    LEFT JOIN phanbodaychuyen pb ON kh.maKHSX = pb.maKHSX AND ct.maSP = pb.maSP
-                    WHERE kh.ngayLap IS NOT NULL AND kh.trangThai IN ('Đã duyệt', 'Hoàn thành', 'Đang thực hiện')";
+                    INNER JOIN chitiet_donhang ct ON dh.maDH = ct.maDH AND pb.maSP = ct.maSP
+                    INNER JOIN sanpham sp ON pb.maSP = sp.maSP
+                    INNER JOIN daychuyen dc ON pb.maDC = dc.maDC
+                    WHERE dc.maXuong = 4";
             
             if ($tuNgay && $denNgay) {
-                $sql .= " AND kh.ngayLap BETWEEN '{$tuNgay}' AND '{$denNgay}'";
+                $sql .= " AND pb.ngayBatDau BETWEEN '{$tuNgay}' AND '{$denNgay}'";
+            }
+            
+            if ($dayChuyen && !empty($dayChuyen)) {
+                $maDC = intval(str_replace('DC', '', $dayChuyen));
+                $sql .= " AND pb.maDC = {$maDC}";
+            }
+            
+            if ($maSP) {
+                $sql .= " AND sp.maSP = " . intval($maSP);
             }
             
             $result = $this->laydulieu($this->conn, $sql);
@@ -109,31 +124,17 @@ class ThongKeSanXuat extends ketnoi {
                 $data = $result[0];
                 return array(
                     'tongKeHoach' => $data['tongKeHoach'] ? intval($data['tongKeHoach']) : 0,
-                    'tongLo' => $data['tongLo'] ? intval($data['tongLo']) : 0,
                     'slThucTe' => $data['slThucTe'] ? intval($data['slThucTe']) : 0,
-                    'slLoi' => $data['slLoi'] ? intval($data['slLoi']) : 0
+                    'tongPhanBo' => $data['tongPhanBo'] ? intval($data['tongPhanBo']) : 0
                 );
             }
             
-            return array('tongKeHoach' => 0, 'tongLo' => 0, 'slThucTe' => 0, 'slLoi' => 0);
+            return array('tongKeHoach' => 0, 'slThucTe' => 0, 'tongPhanBo' => 0);
             
         } catch (Exception $e) {
             error_log("Lỗi layTongQuanThongKe: " . $e->getMessage());
-            return array('tongKeHoach' => 0, 'tongLo' => 0, 'slThucTe' => 0, 'slLoi' => 0);
+            return array('tongKeHoach' => 0, 'slThucTe' => 0, 'tongPhanBo' => 0);
         }
-    }
-    
-    public function testQuery() {
-        // Hàm test để kiểm tra dữ liệu
-        $sql = "SELECT COUNT(*) as total FROM kehoachsanxuat";
-        $result = $this->laydulieu($this->conn, $sql);
-        error_log("Total kehoachsanxuat: " . print_r($result, true));
-        
-        $sql2 = "SELECT COUNT(*) as total FROM donhang";
-        $result2 = $this->laydulieu($this->conn, $sql2);
-        error_log("Total donhang: " . print_r($result2, true));
-        
-        return array('kehoach' => $result, 'donhang' => $result2);
     }
 }
 ?>

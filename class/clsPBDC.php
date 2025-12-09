@@ -8,12 +8,13 @@ class PhanBoDayChuyen extends ketnoi {
         $this->conn = $this->connect();
     }
     
-    // Lấy danh sách dây chuyền
+    // Lấy danh sách dây chuyền (CHỈ XƯỞNG 4)
     public function layDanhSachDayChuyen() {
         try {
             $sql = "SELECT dc.*, x.tenXuong
                     FROM daychuyen dc
                     LEFT JOIN xuong x ON dc.maXuong = x.maXuong
+                    WHERE dc.maXuong = 4
                     ORDER BY dc.maDC";
             $result = $this->laydulieu($this->conn, $sql);
             return $result ? $result : array();
@@ -81,26 +82,36 @@ class PhanBoDayChuyen extends ketnoi {
         }
     }
     
-    // Lấy thống kê
+    // Lấy thống kê (CHỈ XƯỞNG 4)
     public function layThongKe() {
         try {
-            $sql1 = "SELECT COUNT(*) as tongDC FROM daychuyen";
+            // Chỉ đếm dây chuyền của xưởng 4
+            $sql1 = "SELECT COUNT(*) as tongDC FROM daychuyen WHERE maXuong = 4";
             $result1 = $this->laydulieu($this->conn, $sql1);
             
-            $sql2 = "SELECT COUNT(*) as tongPhanBo FROM phanbodaychuyen";
+            // Chỉ đếm phân bổ của xưởng 4
+            $sql2 = "SELECT COUNT(*) as tongPhanBo 
+                     FROM phanbodaychuyen pb
+                     INNER JOIN daychuyen dc ON pb.maDC = dc.maDC
+                     WHERE dc.maXuong = 4";
             $result2 = $this->laydulieu($this->conn, $sql2);
+            
+            // Lấy tên xưởng 4
+            $sql3 = "SELECT tenXuong FROM xuong WHERE maXuong = 4 LIMIT 1";
+            $result3 = $this->laydulieu($this->conn, $sql3);
             
             return array(
                 'tongDayChuyen' => $result1 ? $result1[0]['tongDC'] : 0,
-                'tongPhanBo' => $result2 ? $result2[0]['tongPhanBo'] : 0
+                'tongPhanBo' => $result2 ? $result2[0]['tongPhanBo'] : 0,
+                'tenXuong' => $result3 ? $result3[0]['tenXuong'] : 'Xưởng 4'
             );
         } catch (Exception $e) {
             error_log("Lỗi layThongKe: " . $e->getMessage());
-            return array('tongDayChuyen' => 0, 'tongPhanBo' => 0);
+            return array('tongDayChuyen' => 0, 'tongPhanBo' => 0, 'tenXuong' => 'Xưởng 4');
         }
     }
     
-    // Lấy danh sách phân bổ dây chuyền với thông tin chi tiết
+    // Lấy danh sách phân bổ dây chuyền với thông tin chi tiết (CHỈ XƯỞNG 4)
     public function layDanhSachPhanBo() {
         try {
             $sql = "SELECT 
@@ -121,6 +132,7 @@ class PhanBoDayChuyen extends ketnoi {
                     INNER JOIN daychuyen dc ON pb.maDC = dc.maDC
                     INNER JOIN sanpham sp ON pb.maSP = sp.maSP
                     INNER JOIN kehoachsanxuat kh ON pb.maKHSX = kh.maKHSX
+                    WHERE dc.maXuong = 4
                     ORDER BY pb.maPBDC DESC";
             $result = $this->laydulieu($this->conn, $sql);
             return $result ? $result : array();
