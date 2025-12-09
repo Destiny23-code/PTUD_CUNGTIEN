@@ -309,7 +309,6 @@ $maYeuCau_TuDong = "YE" . date("YmdHis");
                                                 <strong><i class="bi bi-info-circle me-2"></i>Thông tin kế hoạch:</strong>
                                                 <ul class="mb-0 mt-2">
                                                     <li>Số lượng cần sản xuất: <strong class="text-primary"><?php echo number_format($thongTinKHSX['soLuongCanSX'], 0, ',', '.'); ?></strong></li>
-                                                    <li>Hình thức: <strong><?php echo htmlspecialchars($thongTinKHSX['hinhThuc']); ?></strong></li>
                                                 </ul>
                                             </div>
                                             <div class="col-md-6">

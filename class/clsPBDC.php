@@ -30,7 +30,6 @@ class PhanBoDayChuyen extends ketnoi {
             $sql = "SELECT DISTINCT
                            kh.maKHSX, 
                            kh.ngayLap, 
-                           kh.hinhThuc,
                            kh.maDH,
                            ct.soLuong, 
                            dh.ngayGiaoDuKien,
@@ -126,8 +125,7 @@ class PhanBoDayChuyen extends ketnoi {
                         pb.ghiChu,
                         dc.tenDC,
                         sp.tenSP,
-                        kh.ngayLap,
-                        kh.hinhThuc
+                        kh.ngayLap
                     FROM phanbodaychuyen pb
                     INNER JOIN daychuyen dc ON pb.maDC = dc.maDC
                     INNER JOIN sanpham sp ON pb.maSP = sp.maSP
@@ -169,8 +167,7 @@ class PhanBoDayChuyen extends ketnoi {
                         pb.ghiChu,
                         dc.tenDC,
                         sp.tenSP,
-                        kh.ngayLap,
-                        kh.hinhThuc
+                        kh.ngayLap
                     FROM phanbodaychuyen pb
                     INNER JOIN daychuyen dc ON pb.maDC = dc.maDC
                     INNER JOIN sanpham sp ON pb.maSP = sp.maSP

@@ -517,13 +517,20 @@ function renderChiTiet(phieu, chiTiet) {
     $('#modalBody').html(html);
     
     // Render footer buttons
+    // Quản đốc xưởng (phanquyen = 2) CHỈ được xem, KHÔNG được duyệt/hủy/cấp
     var footerHtml = '';
-    if (trangThai == 'Chờ duyệt') {
-        footerHtml += '<button class="btn btn-danger" onclick="xuLyPhieu(' + phieu.maPYCNL + ', \'cancel\')"><i class="bi bi-x-circle me-2"></i>Hủy Phiếu</button>';
-        footerHtml += '<button class="btn btn-success" onclick="xuLyPhieu(' + phieu.maPYCNL + ', \'approve\')"><i class="bi bi-check-circle me-2"></i>Duyệt Phiếu</button>';
-    } else if (trangThai == 'Đã duyệt') {
-        footerHtml += '<button class="btn btn-primary" onclick="xuLyPhieu(' + phieu.maPYCNL + ', \'supply\')"><i class="bi bi-box-seam me-2"></i>Đã Cấp Nguyên Liệu</button>';
+    var phanQuyen = <?php echo $session_phanquyen; ?>;
+    
+    // Chỉ hiển thị nút thao tác nếu KHÔNG phải quản đốc xưởng
+    if (phanQuyen != 2) {
+        if (trangThai == 'Chờ duyệt') {
+            footerHtml += '<button class="btn btn-danger" onclick="xuLyPhieu(' + phieu.maPYCNL + ', \'cancel\')"><i class="bi bi-x-circle me-2"></i>Hủy Phiếu</button>';
+            footerHtml += '<button class="btn btn-success" onclick="xuLyPhieu(' + phieu.maPYCNL + ', \'approve\')"><i class="bi bi-check-circle me-2"></i>Duyệt Phiếu</button>';
+        } else if (trangThai == 'Đã duyệt') {
+            footerHtml += '<button class="btn btn-primary" onclick="xuLyPhieu(' + phieu.maPYCNL + ', \'supply\')"><i class="bi bi-box-seam me-2"></i>Đã Cấp Nguyên Liệu</button>';
+        }
     }
+    
     footerHtml += '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-circle me-2"></i>Đóng</button>';
     
     $('#modalFooter').html(footerHtml);

@@ -10,7 +10,7 @@ class LapPYCNL extends ketnoi {
 
     public function getKeHoachSanXuat() {
         try {
-            $sql = "SELECT DISTINCT kh.maKHSX, kh.ngayLap, kh.hinhThuc,
+            $sql = "SELECT DISTINCT kh.maKHSX, kh.ngayLap,
                            dh.maDH, ct.soLuong as soLuongCanSX,
                            sp.maSP, sp.tenSP
                     FROM kehoachsanxuat kh
@@ -33,7 +33,7 @@ class LapPYCNL extends ketnoi {
             $ma = intval($maKHSX);
             if ($ma <= 0) return null;
             
-            $sql = "SELECT kh.maKHSX, kh.ngayLap, kh.hinhThuc, kh.nguoiLap,
+            $sql = "SELECT kh.maKHSX, kh.ngayLap, kh.nguoiLap,
                            dh.maDH, ct.soLuong as soLuongCanSX, dh.ngayDat, dh.ngayGiaoDuKien
                     FROM kehoachsanxuat kh
                     INNER JOIN donhang dh ON kh.maDH = dh.maDH
@@ -89,7 +89,7 @@ class LapPYCNL extends ketnoi {
             $maSPInt = intval($maSP);
             if ($maKH <= 0 || $maSPInt <= 0) return null;
             
-            $sql = "SELECT kh.maKHSX, kh.ngayLap, kh.hinhThuc, kh.nguoiLap,
+            $sql = "SELECT kh.maKHSX, kh.ngayLap, kh.nguoiLap,
                            dh.maDH, ct.soLuong as soLuongCanSX, dh.ngayDat, dh.ngayGiaoDuKien
                     FROM kehoachsanxuat kh
                     INNER JOIN donhang dh ON kh.maDH = dh.maDH
@@ -237,7 +237,7 @@ class LapPYCNL extends ketnoi {
     public function getAllPhieuYeuCau() {
         try {
             $sql = "SELECT DISTINCT py.maPYCNL, py.maPhieu, py.ngayLap, py.trangThai,
-                           kh.maKHSX, kh.hinhThuc,
+                           kh.maKHSX,
                            sp.tenSP, sp.maSP,
                            x.tenXuong,
                            nv.tenNV as tenNguoiLap
@@ -264,7 +264,7 @@ class LapPYCNL extends ketnoi {
             if ($ma <= 0) return null;
             
             $sql = "SELECT py.*, 
-                           kh.maKHSX, kh.hinhThuc,
+                           kh.maKHSX,
                            ct.soLuong as soLuongCanSX,
                            sp.tenSP, sp.donViTinh as donViTinhSP,
                            x.tenXuong, x.diaChi as diaChiXuong,

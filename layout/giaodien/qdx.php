@@ -21,7 +21,7 @@ $p->checkPagePermission('2');
     <?php 
       // Base path (đường dẫn gốc)
       $link_trangchu    = $base_path . '/pages/qdx/index.php';
-      $link_ds_kehoach  = $base_path . '/pages/pkh/dskhsx.php';
+      $link_ds_kehoach  = $base_path . '/pages/pkh/dskh.php';
       $link_phanbo_dc   = $base_path . '/pages/qdx/pbdc.php';
       $link_phancong_nc = $base_path . '/pages/qdx/pcnc.php';
       $link_ycnl        = $base_path . '/pages/qdx/pycnl.php';
