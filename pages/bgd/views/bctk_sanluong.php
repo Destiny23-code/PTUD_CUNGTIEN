@@ -5,9 +5,9 @@ $selectedYear = date('Y');
 if (isset($_GET['year']) && is_numeric($_GET['year'])) {
     $selectedYear = (int)$_GET['year'];
 }
-// 2. Lấy dữ liệu với năm đã chọn
+// 2. Lấy dữ liệu với năm đã chọn (Sử dụng hàm đã được sửa trong Model)
 $sanLuongThangData = $model->getSanLuongTheoThang($selectedYear);
-$sanLuongLoaiSPData = $model->thongKeSanLuongTheoLoaiSP(); 
+$sanLuongLoaiSPData = $model->thongKeSanLuongTheoLoaiSP($selectedYear); 
 // 3. Chuẩn bị dữ liệu cho Chart.js - Sản lượng theo tháng (Biểu đồ Line)
 $slThangLabels = array();
 $slThangCounts = array();
@@ -39,27 +39,29 @@ $slSpLabelsJson = json_encode($slSpLabels);
 $slSpValuesJson = json_encode($slSpValues);
 
 ?>
+
+<div class="row mb-3">
+    <div class="col-12">
+        <form method="GET" class="d-flex align-items-center" id="filterYearForm">
+            <label for="filterYear" class="form-label m-0 me-2 text-nowrap fw-bold">Chọn Năm báo cáo:</label>
+            <select class="form-select form-select-sm" name="year" id="filterYear" onchange="document.getElementById('filterYearForm').submit();">
+                <?php foreach ($availableYears as $year): ?>
+                    <option value="<?php echo $year; ?>" <?php echo ($selectedYear == $year) ? 'selected' : ''; ?>>
+                        <?php echo $year; ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <input type="hidden" name="type" value="sanluong">
+        </form>
+    </div>
+</div>
 <div class="row d-flex align-items-stretch">
     <div class="col-md-6">
         <div class="card p-3 mb-4 shadow-sm h-100">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <h6 class="fw-bold m-0">Sản lượng theo tháng</h6>
-                
-                <form method="GET" class="d-flex align-items-center" id="filterYearForm">
-                    <label for="filterYear" class="form-label m-0 me-2 text-nowrap">Chọn Năm:</label>
-                    <select class="form-select form-select-sm" name="year" id="filterYear" onchange="document.getElementById('filterYearForm').submit();">
-                        <?php foreach ($availableYears as $year): ?>
-                            <option value="<?php echo $year; ?>" <?php echo ($selectedYear == $year) ? 'selected' : ''; ?>>
-                                <?php echo $year; ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <input type="hidden" name="type" value="sanluong">
-                </form>
-            </div>
+            <h6 class="fw-bold m-0">Sản lượng theo tháng</h6>
             
             <canvas id="slThangChart"></canvas>
-            <div class="text-center mt-2 text-muted small">Năm đang hiển thị: **<?php echo $selectedYear; ?>**</div>
+            <div class="text-center mt-2 text-muted small">Năm đang hiển thị: <?php echo $selectedYear; ?></div>
         </div>
     </div>
     
@@ -110,7 +112,7 @@ new Chart(ctxSLThang, {
             borderColor: '#0d6efd',
             backgroundColor: 'rgba(13, 110, 253, 0.2)',
             fill: true,
-            tension: 0.3 
+            tension: 0.1 // Giữ lại độ cong thấp
         }]
     },
     options: { 

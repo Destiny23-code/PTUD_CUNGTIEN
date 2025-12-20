@@ -25,7 +25,7 @@ $p->checkPagePermission('2');
       $link_phanbo_dc   = $base_path . '/pages/qdx/pbdc.php';
       $link_phancong_nc = $base_path . '/pages/qdx/pcnc.php';
       $link_ycnl        = $base_path . '/pages/qdx/pycnl.php';
-      $link_yckd        = $base_path . '/pages/qdx/danhsach_phieu.php';
+      $link_yckd        = $base_path . '/pages/qdx/dslosp.php';
       $link_thongke     = $base_path . '/pages/qdx/thongkesanxuat.php';
     ?>
 

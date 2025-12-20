@@ -443,16 +443,20 @@ class KeHoachModel extends ketnoi {
         return null;
     }
     // ---Báo cáo sản lượng---
-    public function thongKeSanLuongTheoLoaiSP() {
+    public function thongKeSanLuongTheoLoaiSP($year = null) {
+        $currentYear = (!is_null($year) && $year != '') ? $year : date('Y');
         $link = $this->connect();
+        $whereYear = " AND YEAR(lsp.ngaySX) = " . (int)$currentYear;
         $sql = "SELECT 
                     sp.loaiSP, 
-                    SUM(ctdh.soLuong) AS TongSanLuong
-                FROM CHITIET_DONHANG ctdh
-                JOIN SANPHAM sp ON ctdh.maSP = sp.maSP
-                JOIN DONHANG dh ON ctdh.maDH = dh.maDH
-                WHERE dh.trangThai = N'Hoàn thành'
+                    SUM(lsp.soLuong) AS TongSanLuong
+                FROM LOSANPHAM lsp
+                JOIN SANPHAM sp ON lsp.maSP = sp.maSP
+                WHERE 1=1 
+                AND lsp.trangThai = N'Đạt tiêu chuẩn' 
+                {$whereYear}
                 GROUP BY sp.loaiSP";
+                
         $data = $this->laydulieu($link, $sql);
         $link->close();
         return is_array($data) ? $data : array();
@@ -460,27 +464,19 @@ class KeHoachModel extends ketnoi {
 
     public function getSanLuongTheoThang($year = null) {
         $currentYear = (!is_null($year) && $year != '') ? $year : date('Y');
-        
         $link = $this->connect();
         $sql = "SELECT 
                     MONTH(ngaySX) AS Thang, 
                     SUM(soLuong) AS TongSanLuong
                 FROM LOSANPHAM
-                WHERE YEAR(ngaySX) = " . (int)$currentYear . "
+                WHERE 
+                    YEAR(ngaySX) = " . (int)$currentYear . "
+                    AND trangThai = N'Đạt tiêu chuẩn' 
                 GROUP BY MONTH(ngaySX)
-                ORDER BY Thang";
+                ORDER BY Thang";        
         $data = $this->laydulieu($link, $sql);
         $link->close();
         return is_array($data) ? $data : array();
-    }
-
-    public function getHieuSuatLaoDong() {
-        // Chỉ số GIẢ ĐỊNH
-        return array(
-            array('Thang' => 7, 'HieuSuat' => 84),
-            array('Thang' => 8, 'HieuSuat' => 87),
-            array('Thang' => 9, 'HieuSuat' => 89),
-        );
     }
 
     public function getLoSanPhamTheoKHSXVaSP($maKHSX, $maSP) {
