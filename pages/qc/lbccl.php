@@ -188,7 +188,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <button class="btn btn-success me-2" type="submit">
           <i class="bi bi-check-circle"></i> Lập phiếu
         </button>
-        <a href="./dspyckd.php" class="btn btn-secondary">Hủy</a>
+        <a href="./dspyckd.php"
+          class="btn btn-secondary"
+          onclick="return confirm('Xác nhận hủy!');">
+          Hủy
+        </a>
       </div>
     </form>
   </div>
