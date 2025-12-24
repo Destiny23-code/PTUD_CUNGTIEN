@@ -52,8 +52,7 @@ class PhanCongNhanCong extends ketnoi {
             error_log("Lỗi layThongTinDayChuyen: " . $e->getMessage());
             return null;
         }
-    }
-    
+    }  
     // Lấy danh sách xưởng (CHỈ xưởng của quản đốc hoặc tất cả)
     public function layDanhSachXuong($maXuongQuanDoc = null) {
         try {
@@ -169,15 +168,20 @@ class PhanCongNhanCong extends ketnoi {
         }
     }
     
-    // Thêm phân công mới
+    // Thêm phân công mới với tích hợp lịch làm việc
     public function themPhanCong($maDC, $maNV, $ngayLamViec, $gioBatDau, $gioKetThuc, $ghiChu = '', $maXuongQuanDoc = null) {
         try {
+            // Bắt đầu transaction
+            $this->conn->autocommit(false);
+            
             // Kiểm tra dây chuyền có thuộc xưởng của quản đốc không
             if ($maXuongQuanDoc !== null) {
                 $sqlCheckXuong = "SELECT maXuong FROM daychuyen WHERE maDC = " . intval($maDC);
                 $resultXuong = $this->laydulieu($this->conn, $sqlCheckXuong);
                 
                 if (!$resultXuong || $resultXuong[0]['maXuong'] != $maXuongQuanDoc) {
+                    $this->conn->rollback();
+                    $this->conn->autocommit(true);
                     return "Bạn chỉ có thể phân công cho dây chuyền trong xưởng của mình!";
                 }
             }
@@ -197,9 +201,13 @@ class PhanCongNhanCong extends ketnoi {
                 $maXuongDC = $resultXuongDC[0]['maXuong'];
                 
                 if ($maXuongNV != $maXuongDC) {
+                    $this->conn->rollback();
+                    $this->conn->autocommit(true);
                     return "Nhân viên này không thuộc xưởng của dây chuyền đang chọn!";
                 }
             } else {
+                $this->conn->rollback();
+                $this->conn->autocommit(true);
                 return "Không tìm thấy thông tin nhân viên hoặc dây chuyền!";
             }
             
@@ -216,6 +224,8 @@ class PhanCongNhanCong extends ketnoi {
             
             $checkResult = $this->laydulieu($this->conn, $sqlCheck);
             if ($checkResult && $checkResult[0]['total'] > 0) {
+                $this->conn->rollback();
+                $this->conn->autocommit(true);
                 return "Nhân viên đã được phân công trong khung giờ này!";
             }
             
@@ -232,17 +242,214 @@ class PhanCongNhanCong extends ketnoi {
                         'Đã phân công'
                     )";
             
-            if ($this->conn->query($sql)) {
-                return true;
-            } else {
-                return "Lỗi: " . $this->conn->error;
+            if (!$this->conn->query($sql)) {
+                $this->conn->rollback();
+                $this->conn->autocommit(true);
+                return "Lỗi tạo phân công: " . $this->conn->error;
             }
+            
+            // Lấy ID của phân công vừa tạo
+            $maPC = $this->conn->insert_id;
+            
+            // Xác định ca làm việc phù hợp
+            $thongTinCa = $this->xacDinhCaLam($gioBatDau, $gioKetThuc);
+            $maCa = $thongTinCa ? $thongTinCa['maCa'] : 1; // Mặc định ca sáng nếu không tìm thấy
+            
+            // Kiểm tra tăng ca
+            $thongTinTangCa = $this->kiemTraTangCa($gioBatDau, $gioKetThuc, $thongTinCa);
+            $trangThai = $thongTinTangCa['laTangCa'] ? 'Tăng ca' : 'Nghỉ phép'; // Sử dụng enum có sẵn
+            
+            $gioTangCaBD = isset($thongTinTangCa['gioTangCaBatDau']) ? $thongTinTangCa['gioTangCaBatDau'] : null;
+            $gioTangCaKT = isset($thongTinTangCa['gioTangCaKetThuc']) ? $thongTinTangCa['gioTangCaKetThuc'] : null;
+            
+            // Tạo lịch làm việc
+            $ketQuaLichLamViec = $this->taoLichLamViec($maNV, $ngayLamViec, $maCa, $trangThai, $maPC, $gioTangCaBD, $gioTangCaKT, $ghiChu);
+            
+            if ($ketQuaLichLamViec !== true) {
+                $this->conn->rollback();
+                $this->conn->autocommit(true);
+                return "Lỗi tạo lịch làm việc: " . $ketQuaLichLamViec;
+            }
+            
+            // Commit transaction
+            $this->conn->commit();
+            $this->conn->autocommit(true);
+            
+            return true;
+            
         } catch (Exception $e) {
+            $this->conn->rollback();
+            $this->conn->autocommit(true);
             error_log("Lỗi themPhanCong: " . $e->getMessage());
             return "Lỗi: " . $e->getMessage();
         }
     }
     
+    // Lấy thông tin ca làm việc từ bảng calam
+    public function layThongTinCaLam() {
+        try {
+            $sql = "SELECT maCa, tenCa, gioBatDau, gioKetThuc FROM calam ORDER BY maCa";
+            $result = $this->laydulieu($this->conn, $sql);
+            return $result ? $result : array();
+        } catch (Exception $e) {
+            error_log("Lỗi layThongTinCaLam: " . $e->getMessage());
+            return array();
+        }
+    }
+    
+    // Xác định ca làm việc dựa trên giờ bắt đầu và kết thúc
+    private function xacDinhCaLam($gioBatDau, $gioKetThuc) {
+        try {
+            $danhSachCa = $this->layThongTinCaLam();
+            $caPhiHop = null;
+            $doPhuHopCaoNhat = 0;
+            
+            foreach ($danhSachCa as $ca) {
+                $gioBDCa = $ca['gioBatDau'];
+                $gioKTCa = $ca['gioKetThuc'];
+                
+                // Tính độ phù hợp (overlap) giữa thời gian phân công và ca làm việc
+                $batDauMax = max($gioBatDau, $gioBDCa);
+                $ketThucMin = min($gioKetThuc, $gioKTCa);
+                
+                if ($batDauMax < $ketThucMin) {
+                    // Có overlap - tính phần trăm overlap
+                    $thoiGianOverlap = strtotime($ketThucMin) - strtotime($batDauMax);
+                    $thoiGianCa = strtotime($gioKTCa) - strtotime($gioBDCa);
+                    $doPhuHop = $thoiGianOverlap / $thoiGianCa;
+                    
+                    if ($doPhuHop > $doPhuHopCaoNhat) {
+                        $doPhuHopCaoNhat = $doPhuHop;
+                        $caPhiHop = $ca;
+                    }
+                }
+            }
+            
+            // Nếu không tìm thấy ca phù hợp, chọn ca gần nhất
+            if (!$caPhiHop && !empty($danhSachCa)) {
+                $khoangCachNhoNhat = PHP_INT_MAX;
+                foreach ($danhSachCa as $ca) {
+                    $khoangCach = abs(strtotime($gioBatDau) - strtotime($ca['gioBatDau']));
+                    if ($khoangCach < $khoangCachNhoNhat) {
+                        $khoangCachNhoNhat = $khoangCach;
+                        $caPhiHop = $ca;
+                    }
+                }
+            }
+            
+            return $caPhiHop;
+        } catch (Exception $e) {
+            error_log("Lỗi xacDinhCaLam: " . $e->getMessage());
+            return null;
+        }
+    }
+    
+    // Kiểm tra xem có phải tăng ca không
+    private function kiemTraTangCa($gioBatDau, $gioKetThuc, $thongTinCa) {
+        try {
+            if (!$thongTinCa) {
+                return array(
+                    'laTangCa' => true,
+                    'gioTangCaBatDau' => $gioBatDau,
+                    'gioTangCaKetThuc' => $gioKetThuc
+                );
+            }
+            
+            $gioBDCa = $thongTinCa['gioBatDau'];
+            $gioKTCa = $thongTinCa['gioKetThuc'];
+            
+            // Kiểm tra xem có vượt quá giờ ca không
+            $vuotGioBatDau = strtotime($gioBatDau) < strtotime($gioBDCa);
+            $vuotGioKetThuc = strtotime($gioKetThuc) > strtotime($gioKTCa);
+            
+            if ($vuotGioBatDau || $vuotGioKetThuc) {
+                // Tính giờ tăng ca
+                $gioTangCaBD = $vuotGioBatDau ? $gioBatDau : $gioKTCa;
+                $gioTangCaKT = $vuotGioKetThuc ? $gioKetThuc : $gioBDCa;
+                
+                return array(
+                    'laTangCa' => true,
+                    'gioTangCaBatDau' => $gioTangCaBD,
+                    'gioTangCaKetThuc' => $gioTangCaKT
+                );
+            }
+            
+            return array('laTangCa' => false);
+        } catch (Exception $e) {
+            error_log("Lỗi kiemTraTangCa: " . $e->getMessage());
+            return array('laTangCa' => false);
+        }
+    }
+    
+    // Tạo lịch làm việc với xử lý lỗi toàn diện
+    private function taoLichLamViec($maNV, $ngay, $maCa, $trangThai, $maPC, $gioTangCaBatDau = null, $gioTangCaKetThuc = null, $ghiChu = '') {
+        try {
+            // Kiểm tra ràng buộc khóa ngoại trước khi insert
+            $sqlCheckNV = "SELECT COUNT(*) as total FROM nhanvien WHERE maNV = " . intval($maNV);
+            $resultNV = $this->laydulieu($this->conn, $sqlCheckNV);
+            if (!$resultNV || $resultNV[0]['total'] == 0) {
+                return "Nhân viên không tồn tại trong hệ thống (maNV: {$maNV})";
+            }
+            
+            $sqlCheckCa = "SELECT COUNT(*) as total FROM calam WHERE maCa = " . intval($maCa);
+            $resultCa = $this->laydulieu($this->conn, $sqlCheckCa);
+            if (!$resultCa || $resultCa[0]['total'] == 0) {
+                return "Ca làm việc không tồn tại trong hệ thống (maCa: {$maCa})";
+            }
+            
+            // Kiểm tra trạng thái hợp lệ
+            $trangThaiHopLe = array('Tăng ca', 'Nghỉ phép');
+            if (!in_array($trangThai, $trangThaiHopLe)) {
+                return "Trạng thái không hợp lệ. Chỉ chấp nhận: " . implode(', ', $trangThaiHopLe);
+            }
+            
+            $sql = "INSERT INTO lichlamviec 
+                    (maNV, ngay, maCa, trangThai, gioTangCaBatDau, gioTangCaKetThuc, ghiChu, maPC)
+                    VALUES (
+                        " . intval($maNV) . ",
+                        '{$ngay}',
+                        " . intval($maCa) . ",
+                        '{$trangThai}',
+                        " . ($gioTangCaBatDau ? "'{$gioTangCaBatDau}'" : "NULL") . ",
+                        " . ($gioTangCaKetThuc ? "'{$gioTangCaKetThuc}'" : "NULL") . ",
+                        '" . $this->conn->real_escape_string($ghiChu) . "',
+                        " . intval($maPC) . "
+                    )";
+            
+            if ($this->conn->query($sql)) {
+                return true;
+            } else {
+                $errorCode = $this->conn->errno;
+                $errorMsg = $this->conn->error;
+                
+                // Xử lý các lỗi cụ thể
+                switch ($errorCode) {
+                    case 1452: // Foreign key constraint fails
+                        if (strpos($errorMsg, 'fk_lichlamviec_nv') !== false) {
+                            return "Nhân viên không tồn tại hoặc đã bị xóa khỏi hệ thống";
+                        } elseif (strpos($errorMsg, 'fk_lichlamviec_ca') !== false) {
+                            return "Ca làm việc không tồn tại trong hệ thống";
+                        } elseif (strpos($errorMsg, 'lichlamviec_ibfk_1') !== false) {
+                            return "Phân công không tồn tại hoặc đã bị xóa";
+                        } else {
+                            return "Lỗi ràng buộc dữ liệu: " . $errorMsg;
+                        }
+                    case 1062: // Duplicate entry
+                        return "Lịch làm việc đã tồn tại cho nhân viên này trong ngày đã chọn";
+                    case 1406: // Data too long
+                        return "Dữ liệu nhập vào quá dài, vui lòng kiểm tra lại";
+                    case 1264: // Out of range value
+                        return "Giá trị không hợp lệ, vui lòng kiểm tra lại thông tin";
+                    default:
+                        return "Lỗi cơ sở dữ liệu: " . $errorMsg . " (Mã lỗi: {$errorCode})";
+                }
+            }
+        } catch (Exception $e) {
+            error_log("Lỗi taoLichLamViec: " . $e->getMessage());
+            return "Lỗi hệ thống: " . $e->getMessage();
+        }
+    }
+
     // Xóa phân công
     public function xoaPhanCong($maPC) {
         try {

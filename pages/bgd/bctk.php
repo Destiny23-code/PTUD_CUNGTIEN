@@ -18,7 +18,6 @@ $model = new KeHoachModel();
                 <option value="kehoachsanxuat" <?php echo ($reportType == 'kehoachsanxuat') ? 'selected' : ''; ?>>Kế hoạch sản xuất</option>
                 <option value="sanluong" <?php echo ($reportType == 'sanluong') ? 'selected' : ''; ?>>Sản lượng</option>
                 <option value="chatluong" <?php echo ($reportType == 'chatluong') ? 'selected' : ''; ?>>Chất lượng sản phẩm</option>
-                <option value="hieusuat" <?php echo ($reportType == 'hieusuat') ? 'selected' : ''; ?>>Hiệu suất lao động</option>
             </select>
         </div>
 
@@ -30,8 +29,6 @@ $model = new KeHoachModel();
                 include('views/bctk_sanluong.php');
             } elseif ($reportType == 'chatluong') {
                 include('views/bctk_chatluong.php');
-            } elseif ($reportType == 'hieusuat') {
-                include('views/bctk_hieusuat.php');
             }
             ?>
         </div>
