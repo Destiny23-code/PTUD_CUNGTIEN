@@ -3,6 +3,7 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
+date_default_timezone_set('Asia/Ho_Chi_Minh')
 session_start();
 require_once("../../class/clslogin.php");
 $p = new login();
@@ -22,7 +23,8 @@ require_once("../../class/clsLapBCCL.php"); // Class LapBCCL
 // Nhận dữ liệu từ GET
 $maPhieu   = isset($_GET['maPhieu']) ? $_GET['maPhieu'] : '';
 $maLo      = isset($_GET['maLo']) ? $_GET['maLo'] : '';
-$ngayLap   = isset($_GET['ngayLap']) ? $_GET['ngayLap'] : '';
+//$ngayLap   = isset($_GET['ngayLap']) ? $_GET['ngayLap'] : '';
+$ngayLap = date('Y-m-d');
 $tenNV     = isset($_SESSION['hoTen']) ? $_SESSION['hoTen'] : '';
 $sDT       = isset($_GET['sDT']) ? $_GET['sDT'] : '';
 $ngaySX    = isset($_GET['ngaySX']) ? $_GET['ngaySX'] : '';
